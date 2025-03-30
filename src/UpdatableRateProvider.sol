@@ -31,6 +31,9 @@ contract UpdatableRateProvider is AccessControlDefaultAdminRules, IRateProvider 
     /// @notice Current value.
     uint256 public value;
 
+    /// @notice Emitted at most once during contract lifetime, when the admin has set the connected pool.
+    event PoolSet(address pool, bool isBalancerV3);
+
     address internal constant ZERO_ADDRESS = address(0x00);
 
     using FixedPoint for uint256;
@@ -55,6 +58,7 @@ contract UpdatableRateProvider is AccessControlDefaultAdminRules, IRateProvider 
         require(pool == ZERO_ADDRESS, "Pool already set; can only be set once.");
         pool = _pool;
         isBalancerV3 = _isBalancerV3;
+        emit PoolSet(_pool, _isBalancerV3);
     }
 
     function _getFeedValue() internal view returns (uint256 ret) {
