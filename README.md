@@ -13,11 +13,14 @@ A potential accounting problem occurs if protocol fees are taken on underlying y
 
 The update method is permissioned and can only be performed by the respective authorized role. The reason for this is to protect against unknown potential attacks that might be available by performing an update together with some other operation. While we are not aware of any such attack, making the update permissioned serves as a conservative approach here.
 
-# Dependencies
+## Dependencies
 
 Dependencies are managed using foundry's system (and therefore are installed automatically on clone) and pnpm. Use `pnpm` to get the latter ones.
 
-# Operation
+Non-standard dependencies:
+- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2.
+
+## Operation
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
 
