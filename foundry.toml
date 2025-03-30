@@ -8,7 +8,8 @@ remappings = [
   "src/=src/",
   "oz/=lib/openzeppelin-contracts/contracts/",
   "@chainlink/=node_modules/@chainlink/",
-  "balancer-v3-interfaces=lib/balancer-v3-monorepo/pkg/interfaces/contracts/"
+  "balancer-v3-interfaces/=lib/balancer-v3-monorepo/pkg/interfaces/contracts/",
+  "balancer-v3/=lib/balancer-v3-monorepo/",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
