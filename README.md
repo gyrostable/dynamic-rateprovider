@@ -17,4 +17,14 @@ The update method is permissioned and can only be performed by the respective au
 
 Dependencies are managed using foundry's system (and therefore are installed automatically on clone) and pnpm. Use `pnpm` to get the latter ones.
 
+# Operation
+
+The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
+
+1. When deploying the `UpdatableRateProvider`, the deployer specifies the chainlink feed and the admin.
+2. They then specify the `UpdatableRateProvider` as the rate provider of the pool and deploy the pool. The rateprovider will work in this state, but the update function is not available (it would revert).
+3. The admin then calls `UpdatableRateProvider.setPool()` to connect the rateprovider to the pool. This can only be done once. The update function is then available.
+
+An `UpdatableRateProvider` *must not* be used for more than one pool. We cannot and do not check this.
+
 
