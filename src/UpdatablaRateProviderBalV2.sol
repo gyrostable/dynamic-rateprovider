@@ -36,6 +36,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         (IGyroECLPPool.Params memory params,) = IGyroECLPPool(pool).getECLPParams();
 
         // TODO handle protocol fees.
+        // TODO perform join/exit to reset `lastInvariant`
 
         _updateToEdge(uint256(params.alpha), uint256(params.beta));
     }
