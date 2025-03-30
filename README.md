@@ -12,3 +12,9 @@ The rateprovider supports ECLPs in both Balancer V2 and Balancer V3. The Balance
 A potential accounting problem occurs if protocol fees are taken on underlying yield while the rateprovider updates. To avoid this, for Balancer V3, the pool must not take protocol fees on underlying yield. For Balancer V2, the rateprovider must be authorized to temporarily set protocol fees to 0.
 
 The update method is permissioned and can only be performed by the respective authorized role. The reason for this is to protect against unknown potential attacks that might be available by performing an update together with some other operation. While we are not aware of any such attack, making the update permissioned serves as a conservative approach here.
+
+# Dependencies
+
+Dependencies are managed using foundry's system (and therefore are installed automatically on clone) and pnpm. Use `pnpm` to get the latter ones.
+
+
