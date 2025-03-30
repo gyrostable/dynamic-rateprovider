@@ -3,9 +3,6 @@ pragma solidity ^0.8.24;
 import {AccessControlDefaultAdminRules} from
     "oz/access/extensions/AccessControlDefaultAdminRules.sol";
 
-import {AggregatorV3Interface} from
-    "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-
 // NB the Bal V2 and V3 interfaces for IRateProvider are the same.
 import {IRateProvider} from "balancer-v3-interfaces/solidity-utils/helpers/IRateProvider.sol";
 
@@ -23,15 +20,11 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         ABOVE
     }
 
-    /// @notice Connected chainlink feed.
-    AggregatorV3Interface public immutable feed;
+    /// @notice Connected price feed. This is a RateProvider (often a ChainlinkRateProvider or a
+    // transformation of one).
+    IRateProvider public immutable feed;
 
-    /// @notice Scaling factor to get the chainlink feed value to 18 decimals. This is itself an
-    // unscaled value (scaling is by raw multiplication; if the feed is already 18 decimals, it's
-    // 1.)
-    uint256 public immutable scalingFactor;
-
-    /// @notice If true, we use 1 / (the chainlink feed value) as the true value. This can be useful
+    /// @notice If true, we use 1 / (the feed value) as the true value. This can be useful
     // for pairs like wstETH/USDC where the wstETH side is already "used up" for the live wstETH/
     // WETH rate and the actual range needs to be captured on the USDC side.
     bool public immutable invert;
@@ -65,9 +58,8 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             _grantRole(UPDATER_ROLE, _updater);
         }
 
-        feed = AggregatorV3Interface(_feed);
+        feed = IRateProvider(_feed);
         invert = _invert;
-        scalingFactor = 10 ** (18 - feed.decimals());
 
         // NB we can do this *once*, here, while the pool is stil uninitialized.
         // During normal operation, we need to set the value much more carefully to avoid arbitrage
@@ -92,9 +84,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     }
 
     function _getFeedValue() internal view returns (uint256 ret) {
-        (, int256 _value,,,) = feed.latestRoundData();
-        require(_value > 0, "Invalid feed response");
-        ret = uint256(_value) * scalingFactor;
+        ret = feed.getRate();
         if (invert) {
             ret = FixedPoint.ONE.divDown(ret);
         }

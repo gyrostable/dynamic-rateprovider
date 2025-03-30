@@ -11,7 +11,7 @@ import {TokenInfo} from "balancer-v3-interfaces/vault/VaultTypes.sol";
 contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// @notice Parameters:
     ///
-    /// -  `_feed`: A chainlink feed to use for updates
+    /// -  `_feed`: A RateProvider to use for updates
     /// - `_invert`: If true, use 1/(value returned by the feed) instead of the value itself.
     /// - `_admin`: Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
     ///     manage permissions.
@@ -37,7 +37,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     /// @notice If the pool is out of range, update this rateprovider such that it is just on the
     /// edge of its price range after the update. Reverts if the pool is not out of range. Updater
-    /// only. Uses the linked chainlink feed to get the true price.
+    /// only. Uses the linked `feed` rateprovider to get the true price.
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 

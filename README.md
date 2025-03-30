@@ -1,9 +1,9 @@
 
 # Gyroscope Dynamic RateProviders
 
-These are contracts that implement the `RateProvider` interface and are connected to a chainlink feed but do _not_ automatically reflect the current value of the chainlink feed. Instead, it stores the most recently observed value and everyday operation is like a `ConstantRateProvider` that always returns the same value.
+These are contracts that implement the `RateProvider` interface and are connected to a price feed but do _not_ automatically reflect the current value of the feed. Instead, everyday operation is like a `ConstantRateProvider` that always returns the same stored value. What differentiates these rateproviders from a `ConstantRateProvider` is that they also have an update method by which the stored value can be updated based on the feed. This update is not unconditional, though, to avoid an arbitrage loss to LPers.
 
-What differentiates them from a `ConstantRateProvider` is that they also have an update method by which the stored value can be updated based on the chainlink feed. This update is not unconditional, though, to avoid an arbitrage loss to LPers.
+The `feed` rateprovider is often a `ChainlinkRateProvider` that pulls prices from chainlink, but it could also be a contract that implements some transformation of oracle feeds (e.g., the quotient of two oracle feeds to get a relative price). In any case, it is assumed that the `feed` returns a live market price.
 
 In the V1 version of the contract, `updateToEdge()` can only be performed when the linked pool is out of range, and then the rate is updated such that the pool is just barely at the respective edge of its price range. In this case, LPers do not incur an arbitrage loss. It is expected that these updates occur rarely.
 
@@ -15,7 +15,7 @@ The update method is permissioned and can only be performed by the respective au
 
 ## Dependencies
 
-Dependencies are managed using foundry's system (and therefore are installed automatically on clone) and pnpm. Use `pnpm` to get the latter ones.
+Dependencies are managed using foundry's system (and therefore are installed automatically on clone).
 
 Non-standard dependencies:
 - `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2.
