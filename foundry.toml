@@ -6,6 +6,7 @@ libs = ["lib"]
 
 remappings = [
   "src/=src/",
+  "forge-std/=lib/forge-std/src/",
   "oz/=lib/openzeppelin-contracts/contracts/",
   "@chainlink/=node_modules/@chainlink/",
   "balancer-v3-interfaces/=lib/balancer-v3-monorepo/pkg/interfaces/contracts/",
