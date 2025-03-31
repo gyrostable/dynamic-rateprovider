@@ -42,5 +42,8 @@ interface IGyroECLPPool {
     function rateProvider0() external returns (address);
     function rateProvider1() external returns (address);
     function getECLPParams() external view returns (Params memory, DerivedParams memory);
+
+    function getVault() external returns (address);
+    function getPoolId() external returns (bytes32);
 }
 
