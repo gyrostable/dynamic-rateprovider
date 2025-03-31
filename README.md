@@ -20,7 +20,9 @@ Dependencies are managed using foundry's system (and therefore are installed aut
 Non-standard dependencies:
 - `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2.
 
-## Operation
+## Deployment & Operation
+
+### Common
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
 
@@ -29,6 +31,25 @@ The contract uses a two-step initialization procedure to avoid a circular deploy
 3. The admin then calls `UpdatableRateProvider.setPool()` to connect the rateprovider to the pool. This can only be done once. The update function is then available.
 
 An `UpdatableRateProvider` *must not* be used for more than one pool. We cannot and do not check this.
+
+### Balancer V2 Variant
+
+The Balancer V2 variant of the ECLP cannot differentiate between swap fees and rate provider changes for the purpose of computing protocol fees. To work around this, `UpdatableRateProviderBalV2` performs the following actions:
+
+- It joins the pool with a small amount. This sets the `lastInvariant` state value of the ECLP that tracks protocol fees.
+- It sets the protocol fee to 0, saving the previous value.
+- It updates its rateprovider value.
+- It then resets the protocol fee to its previous value.
+- It exits the pool again.
+
+Because of this, the following additional steps are needed for deployment:
+
+4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool.
+5. Someone has to transfer a small amount of both pool tokens to the `UpdatableRateProvider` (for joining and exiting).
+
+### Balancer V3 Variant
+
+For the Balancer V3 variant, it must be made sure that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Nothing else needs to be done.
 
 ## Source Tour
 
