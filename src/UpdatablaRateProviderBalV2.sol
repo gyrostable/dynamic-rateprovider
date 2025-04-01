@@ -30,6 +30,15 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         uint256 value; // valid iff isSet.
     }
 
+    /// @notice Some collected pool metadata we pass around.
+    struct PoolMetadata {
+        IGyroECLPPool pool;
+        IVault vault;
+        bytes32 poolId;
+        IERC20Bal[] tokens;
+        uint256[] poolBalancesPreJoin;
+    }
+
     /// @param _feed A RateProvider to use for updates
     /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself.
     /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
@@ -69,64 +78,61 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 
+        PoolMetadata memory meta = _getPoolMetadata(pool);
+
         // Unless protocol fees are 0, we need to set them to 0 so they don't get in the way when
         // updating our rate. We do a join+exit combo with a small amount around our updating of our
         // rate to update the accounting for protocol fees (`lastInvariant` in the ECLP). Note that
         // order matters here. We store the old value to restore it later. We also have to store
         // _if_ protocol fees are set for this pool because they follow a default cascade.
-        ProtocolFeeSetting memory oldProtocolFees = _getPoolProtocolFee(pool);
+        ProtocolFeeSetting memory oldProtocolFees = _getPoolProtocolFee(address(meta.pool));
 
         // If they are already set to explicit 0, we do not need to do anything, and we don't. This
         // saves a bit of unnecessary interaction.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
-            _joinPoolAll(pool);
-            _setPoolProtocolFee(pool, ProtocolFeeSetting(true, 0));
+            _joinPoolAll(meta);
+            _setPoolProtocolFee(address(meta.pool), ProtocolFeeSetting(true, 0));
         }
 
-        (IGyroECLPPool.Params memory params,) = IGyroECLPPool(pool).getECLPParams();
+        (IGyroECLPPool.Params memory params,) = meta.pool.getECLPParams();
         _updateToEdge(uint256(params.alpha), uint256(params.beta));
 
         // Update protocol fee accounting and reset their config.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
-            _exitPoolAll(pool);
-            _setPoolProtocolFee(pool, oldProtocolFees);
+            _exitPoolAll(meta);
+            _setPoolProtocolFee(address(meta.pool), oldProtocolFees);
         }
     }
 
-    // Join the pool with (potentially) all our assets.
-    function _joinPoolAll(address _pool) internal {
+    function _getPoolMetadata(address _pool) internal view returns (PoolMetadata memory meta) {
         IGyroECLPPool pool_ = IGyroECLPPool(_pool);
+        IVault vault_ = IVault(pool_.getVault());
+        bytes32 poolId_ = pool_.getPoolId();
 
-        IVault vault = IVault(pool_.getVault());
-        bytes32 poolId = pool_.getPoolId();
-        (IERC20Bal[] memory tokens, uint256[] memory poolBalances,) = vault.getPoolTokens(poolId);
-        require(tokens.length == 2, "Unexpected number of tokens");
+        meta.pool = pool_;
+        meta.vault = vault_;
+        meta.poolId = poolId_;
+        (meta.tokens, meta.poolBalancesPreJoin,) = vault_.getPoolTokens(poolId_);
 
-        uint256[] memory balances = _getBalances(tokens);
-        // We need some nonzero assets to perform the join.
-        require(balances[0] > 0 && balances[1] > 0, "Missing assets");
+        require(meta.tokens.length == 2, "Unexpected number of tokens");
+    }
+
+    // Join the pool with (potentially) all our assets.
+    function _joinPoolAll(PoolMetadata memory meta) internal {
+        uint256[] memory balances = _getBalances(meta.tokens);
+
         // NB `.getActualSupply()` is like `.totalSupply()` but accounts for the fact that due
         // protocol fees are distributed before the join (so it may be slightly higher than
         // totalSupply).
-        uint256 bptAmount = _calcBptAmount(balances, poolBalances, pool_.getActualSupply());
+        uint256 bptAmount = _calcBptAmount(balances, meta.poolBalancesPreJoin, meta.pool.getActualSupply());
 
-        _makeApprovals(address(vault), tokens);
-        _joinPoolFor(bptAmount, tokens, poolId, vault);
+        _makeApprovals(meta);
+        _joinPoolFor(bptAmount, meta);
     }
 
     // Exit all our LP shares from the pool.
-    function _exitPoolAll(address _pool) internal {
-        // This is partially but not completely analogous to `_joinPoolAll()` b/c we don't need to
-        // calculate stuff or make approvals.
-
-        IGyroECLPPool pool_ = IGyroECLPPool(_pool);
-
-        IVault vault = IVault(pool_.getVault());
-        bytes32 poolId = pool_.getPoolId();
-
-        (IERC20Bal[] memory tokens,,) = vault.getPoolTokens(poolId);
-
-        _exitPoolFor(pool_.balanceOf(address(this)), tokens, poolId, vault);
+    function _exitPoolAll(PoolMetadata memory meta) internal {
+        _exitPoolFor(meta.pool.balanceOf(address(this)), meta);
     }
 
     // Get our balances of the pool tokens in their native number of decimals
@@ -154,25 +160,33 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         }
     }
 
+    // Calculate BPT amount that we can get by joining, given our balances. Never returns 0.
     function _calcBptAmount(
         uint256[] memory balances,
         uint256[] memory poolBalances,
         uint256 totalSupply
     ) internal pure returns (uint256 shares) {
-        // We don't use 18-decimal methods like `FixedPoint.mulDown()` to improve precision with
-        // low-decimals tokens like USDC. Note that decimal/rate scaling factors cancel out and the
-        // result is an 18-decimal number (i.e., in the same scale as LP shares).
+        // Note that decimal/rate scaling factors cancel out and the result is an 18-decimal number
+        // (i.e., in the same scale as LP shares).
         uint256 shares0 = totalSupply * balances[0] / poolBalances[0];
         uint256 shares1 = totalSupply * balances[1] / poolBalances[1];
         shares = shares0 <= shares1 ? shares0 : shares1;
+
+        // Just as a conservative safety margin if the pool rounds down slightly more than we do here.
+        // It really doesn't matter with which amount we join.
+        shares /= 2;
+
+        if (shares == 0) {
+            revert("Not enough assets.");
+        }
     }
 
-    function _makeApprovals(address _vault, IERC20Bal[] memory tokens) internal {
+    function _makeApprovals(PoolMetadata memory meta) internal {
         // We just make one blanket approval per token.
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            IERC20Bal token = tokens[i];
-            if (token.allowance(address(this), _vault) == 0) {
-                token.approve(_vault, type(uint256).max);
+        for (uint256 i = 0; i < meta.tokens.length; ++i) {
+            IERC20Bal token = meta.tokens[i];
+            if (token.allowance(address(this), address(meta.vault)) == 0) {
+                token.approve(address(meta.vault), type(uint256).max);
             }
         }
     }
@@ -180,9 +194,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     // Interacts with Balancer to join the pool with specified amounts.
     function _joinPoolFor(
         uint256 bptAmount,
-        IERC20Bal[] memory tokens,
-        bytes32 poolId,
-        IVault vault
+        PoolMetadata memory meta
     ) internal {
         // We don't use limits b/c they don't matter here, and amounts are small anyways.
         uint256[] memory maxAmountsIn = new uint256[](2);
@@ -193,12 +205,12 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         bytes memory userData =
             abi.encode(WeightedPoolUserData.JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, bptAmount);
 
-        vault.joinPool(
-            poolId,
+        meta.vault.joinPool(
+            meta.poolId,
             address(this),
             address(this),
             IVault.JoinPoolRequest({
-                assets: _tokens2assets(tokens),
+                assets: _tokens2assets(meta.tokens),
                 maxAmountsIn: maxAmountsIn,
                 userData: userData,
                 fromInternalBalance: false
@@ -209,9 +221,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     // Same as _joinPoolFor() but for exiting.
     function _exitPoolFor(
         uint256 bptAmount,
-        IERC20Bal[] memory tokens,
-        bytes32 poolId,
-        IVault vault
+        PoolMetadata memory meta
     ) internal {
         uint256[] memory minAmountsOut = new uint256[](2);
         minAmountsOut[0] = 0;
@@ -220,12 +230,12 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         bytes memory userData =
             abi.encode(WeightedPoolUserData.ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmount);
 
-        vault.exitPool(
-            poolId,
+        meta.vault.exitPool(
+            meta.poolId,
             address(this),
             payable(address(this)),
             IVault.ExitPoolRequest({
-                assets: _tokens2assets(tokens),
+                assets: _tokens2assets(meta.tokens),
                 minAmountsOut: minAmountsOut,
                 userData: userData,
                 toInternalBalance: false
@@ -244,24 +254,26 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         }
     }
 
+    // See:
+    // https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol 
     function _getPoolKey(address pool, bytes32 key) internal pure returns (bytes32) {
         return keccak256(abi.encode(key, pool));
     }
 
-    function _setPoolProtocolFee(address pool, ProtocolFeeSetting memory feeSetting) internal {
+    function _setPoolProtocolFee(address _pool, ProtocolFeeSetting memory feeSetting) internal {
         IGovernanceRoleManager.ProposalAction[] memory actions =
             new IGovernanceRoleManager.ProposalAction[](1);
-        bytes32 key = _getPoolKey(pool, PROTOCOL_SWAP_FEE_PERC_KEY);
+        bytes32 key = _getPoolKey(_pool, PROTOCOL_SWAP_FEE_PERC_KEY);
 
         actions[0].target = address(gyroConfigManager);
         actions[0].value = 0;
         if (feeSetting.isSet) {
             actions[0].data = abi.encodeWithSelector(
-                gyroConfigManager.setPoolConfigUint.selector, pool, key, feeSetting.value
+                gyroConfigManager.setPoolConfigUint.selector, _pool, key, feeSetting.value
             );
         } else {
             actions[0].data =
-                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, pool, key);
+                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, _pool, key);
         }
 
         governanceRoleManager.executeActions(actions);
