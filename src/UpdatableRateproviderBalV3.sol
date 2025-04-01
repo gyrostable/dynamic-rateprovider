@@ -11,13 +11,11 @@ import {TokenInfo} from "balancer-v3-interfaces/vault/VaultTypes.sol";
 /// @notice Balancer V3 variant of the updatable rateprovider for volatile asset pairs in Gyroscope
 /// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
-    /// @notice Parameters:
-    ///
-    /// -  `_feed`: A RateProvider to use for updates.
-    /// - `_invert`: If true, use 1/(value returned by the feed) instead of the feed value itself.
-    /// - `_admin`: Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
-    ///     manage permissions.
-    /// - `_updater`: Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
+    /// @param _feed A RateProvider to use for updates
+    /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself
+    /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
+    ///     manage permissions
+    /// @param _updater Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
     ///     Pass the zero address if you don't want to set an updater yet; the admin can manage roles
     ///     later.
     constructor(address _feed, bool _invert, address _admin, address _updater)
@@ -27,8 +25,8 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     /// @notice Set the pool that this rateprovider should be connected to. Required before
     /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
-    /// - `_vault` must be the Balancer V3 vault.
-    /// - `_pool` must be a Balancer V3 ECLP registered in `_vault`.
+    /// @param _vault The Balancer V3 vault
+    /// @param _pool A Balancer V3 ECLP registered in `_vault`
     function setPool(address _vault, address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
         (, TokenInfo[] memory tokenInfo,,) = IVault(_vault).getPoolTokenInfo(_pool);
         require(tokenInfo.length == 2, "Unexpected number of tokens");

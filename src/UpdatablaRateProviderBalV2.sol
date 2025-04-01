@@ -30,17 +30,15 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         uint256 value; // valid iff isSet.
     }
 
-    /// @notice Parameters:
-    ///
-    /// -  `_feed`: A RateProvider to use for updates.
-    /// - `_invert`: If true, use 1/(value returned by the feed) instead of the feed value itself.
-    /// - `_admin`: Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
-    ///     manage permissions.
-    /// - `_updater`: Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
+    /// @param _feed A RateProvider to use for updates
+    /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself.
+    /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
+    ///     manage permissions
+    /// @param _updater Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
     ///     Pass the zero address if you don't want to set an updater yet; the admin can manage roles
     ///     later.
-    /// - `_gyroConfigManager`: Address of the `GyroConfigManager` that we can use to set swap fees.
-    /// - `_governanceRoleManager`: Address of the `GovernanceRoleManager` that we can use to set
+    /// @param _gyroConfigManager Address of the `GyroConfigManager` that we can use to set swap fees
+    /// @param _governanceRoleManager Address of the `GovernanceRoleManager` that we can use to set
     ///   swap fees.
     constructor(
         address _feed,
@@ -57,7 +55,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// @notice Set the pool that this rateprovider should be connected to. Required before
     /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
-    /// `_pool` must be a Balancer V2 ECLP.
+    /// @param _pool A Balancer V2 ECLP
     function setPool(address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
         IGyroECLPPool pool_ = IGyroECLPPool(_pool);
         bool _thisIsToken0 = _calcThisIsToken0(pool_.rateProvider0(), pool_.rateProvider1());
