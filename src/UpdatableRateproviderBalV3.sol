@@ -8,7 +8,7 @@ import {
 import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
 import {TokenInfo} from "balancer-v3-interfaces/vault/VaultTypes.sol";
 
-contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
+contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     /// @notice Parameters:
     ///
     /// -  `_feed`: A RateProvider to use for updates.
