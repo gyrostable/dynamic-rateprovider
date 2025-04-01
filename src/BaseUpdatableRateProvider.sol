@@ -21,26 +21,26 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     }
 
     /// @notice Connected price feed. This is a RateProvider (often a ChainlinkRateProvider or a
-    // transformation of one).
+    /// transformation of one).
     IRateProvider public immutable feed;
 
     /// @notice If true, we use 1 / (the feed value) as the true value. This can be useful
-    // for pairs like wstETH/USDC where the wstETH side is already "used up" for the live wstETH/
-    // WETH rate and the actual range needs to be captured on the USDC side.
+    /// for pairs like wstETH/USDC where the wstETH side is already "used up" for the live wstETH/
+    /// WETH rate and the actual range needs to be captured on the USDC side.
     bool public immutable invert;
 
     /// @notice Address of the connected pool. Settable once by the owner.
     address public pool;
 
     /// @notice True if this rateprovider is attached to token0 of the pool. Otherwise, it's
-    // attached to token1.
+    /// attached to token1. Settable once, together with `pool`.
     bool public thisIsToken0;
 
     /// @notice Current value.
     uint256 public value;
 
     /// @notice The role that can call the update function.
-    bytes32 internal constant UPDATER_ROLE = "UPDATER_ROLE";
+    bytes32 public constant UPDATER_ROLE = "UPDATER_ROLE";
 
     /// @notice Emitted at most once during contract lifetime, when the admin has set the connected
     /// pool.
@@ -49,7 +49,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     /// @notice Emitted whenever the stored value (the rate) is updated.
     event ValueUpdated(uint256 value, OutOfRangeSide why);
 
-    address internal constant ZERO_ADDRESS = address(0x00);
+    address internal constant ZERO_ADDRESS = address(0);
 
     constructor(address _feed, bool _invert, address _admin, address _updater)
         AccessControlDefaultAdminRules(1 days, _admin)
@@ -117,8 +117,8 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         }
     }
 
-    /// @notice Get the `thisIsToken0` flag given the two rateproviders
-    function _getThisIsToken0(address rateProvider0, address rateProvider1)
+    /// @notice Calculate the `thisIsToken0` flag given the two rateproviders.
+    function _calcThisIsToken0(address rateProvider0, address rateProvider1)
         internal
         view
         returns (bool)

@@ -5,16 +5,21 @@ import {IGyroECLPPool} from "gyro-concentrated-lps-balv2/IGyroECLPPool.sol";
 import {IGovernanceRoleManager} from "gyro-concentrated-lps-balv2/IGovernanceRoleManager.sol";
 import {IGyroConfig} from "gyro-concentrated-lps-balv2/IGyroConfig.sol";
 import {IGyroConfigManager} from "gyro-concentrated-lps-balv2/IGyroConfigManager.sol";
-// *sign* Balancer's version of IERC20 doesn't include `.decimals()`. Foundry's version is actually
+// *sigh* Balancer's version of IERC20 doesn't include `.decimals()`. Foundry's version is actually
 // IERC20Metadata.
 import {IVault, IERC20 as IERC20Bal, IAsset} from "balancer-v2-interfaces/vault/IVault.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/WeightedPoolUserData.sol";
 
 contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
+    /// @notice Connected `GyroConfigManager` used to set the protocol fee to 0 during update.
     IGyroConfigManager public immutable gyroConfigManager;
+
+    /// @notice Connected `GovernanceRoleManager` used to set the protocol fee to 0 during update.
     IGovernanceRoleManager public immutable governanceRoleManager;
 
+    /// @notice Key used by pools to retrieve their swap fees, see:
+    /// https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol 
     bytes32 internal constant PROTOCOL_SWAP_FEE_PERC_KEY = "PROTOCOL_SWAP_FEE_PERC";
 
     /// @notice Internal helper struct to back up and restore protocol fees.
@@ -25,16 +30,16 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     /// @notice Parameters:
     ///
-    /// -  `_feed`: A RateProvider to use for updates
-    /// - `_invert`: If true, use 1/(value returned by the feed) instead of the value itself.
+    /// -  `_feed`: A RateProvider to use for updates.
+    /// - `_invert`: If true, use 1/(value returned by the feed) instead of the feed value itself.
     /// - `_admin`: Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
     ///     manage permissions.
     /// - `_updater`: Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
-    //     Pass the zero address if you don't want to set an updater yet; the admin can manage roles
-    //     later.
-    // - `_gyroConfigManager`: Address of the `GyroConfigManager` that we can use to set swap fees.
-    // - `_governanceRoleManager`: Address of the `GovernanceRoleManager` that we can use to set
-    //   swap fees.
+    ///     Pass the zero address if you don't want to set an updater yet; the admin can manage roles
+    ///     later.
+    /// - `_gyroConfigManager`: Address of the `GyroConfigManager` that we can use to set swap fees.
+    /// - `_governanceRoleManager`: Address of the `GovernanceRoleManager` that we can use to set
+    ///   swap fees.
     constructor(
         address _feed,
         bool _invert,
@@ -48,18 +53,19 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     }
 
     /// @notice Set the pool that this rateprovider should be connected to. Required before
-    /// `.updateToEdge()` is called. Admin only.
+    /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
     /// `_pool` must be a Balancer V2 ECLP.
     function setPool(address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
         IGyroECLPPool pool_ = IGyroECLPPool(_pool);
-        bool _thisIsToken0 = _getThisIsToken0(pool_.rateProvider0(), pool_.rateProvider1());
+        bool _thisIsToken0 = _calcThisIsToken0(pool_.rateProvider0(), pool_.rateProvider1());
         _setPool(_pool, _thisIsToken0);
     }
 
-    /// @notice If the pool is out of range, update this rateprovider such that it is just on the
-    /// edge of its price range after the update. Reverts if the pool is not out of range. Updater
-    /// only. Uses the linked `feed` rateprovider to get the true price.
+    /// @notice If the pool is out of range, update this rateprovider such that the true current
+    /// price it is just on the edge of its price range after the update. Reverts if the pool is not
+    /// out of range. Callable by the updater role only. Uses the linked `feed` rateprovider to get
+    /// the true current price.
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 
