@@ -1,9 +1,11 @@
 
 pragma solidity ^0.8;
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+
 /// @notice This is an ad-hoc interface for required functions of ECLPs under Balancer v2.
 /// See https://github.com/gyrostable/concentrated-lps/blob/main/contracts/eclp/GyroECLPPool.sol
-interface IGyroECLPPool {
+interface IGyroECLPPool is IERC20 {
     // See https://github.com/gyrostable/concentrated-lps/blob/main/contracts/eclp/GyroECLPMath.sol
 
     struct Vector2 {
@@ -39,8 +41,13 @@ interface IGyroECLPPool {
         //int256 dBeta; // normalization constant for tau(beta)
     }
 
-    function rateProvider0() external returns (address);
-    function rateProvider1() external returns (address);
+    function rateProvider0() external view returns (address);
+    function rateProvider1() external view returns (address);
     function getECLPParams() external view returns (Params memory, DerivedParams memory);
+
+    function getVault() external view returns (address);
+    function getPoolId() external view returns (bytes32);
+
+    function getActualSupply() external view returns (uint256);
 }
 
