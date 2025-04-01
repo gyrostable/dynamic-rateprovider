@@ -1,34 +1,34 @@
 
 # Gyroscope Dynamic RateProviders
 
-These are contracts that implement the `RateProvider` interface and are connected to a price feed but do _not_ automatically reflect the current value of the feed. Instead, everyday operation is like a `ConstantRateProvider` that always returns the same stored value. What differentiates these rateproviders from a `ConstantRateProvider` is that they also have an update method by which the stored value can be updated based on the feed. This update is not unconditional, though, to avoid an arbitrage loss to LPers.
+These are contracts that implement the `RateProvider` interface and are connected to a price feed but do _not_ automatically reflect the current value of the feed. Instead, everyday operation is like a `ConstantRateProvider` that always returns the same stored value. What differentiates these rateproviders from a `ConstantRateProvider` is that they also have an update method by which the stored value can be updated based on the feed. This update is not unconditional, though, to avoid an arbitrage loss / MEV exposure to LPers.
 
 The `feed` rateprovider is often a `ChainlinkRateProvider` that pulls prices from chainlink, but it could also be a contract that implements some transformation of oracle feeds (e.g., the quotient of two oracle feeds to get a relative price). In any case, it is assumed that the `feed` returns a live market price.
 
-In the V1 version of the contract, `updateToEdge()` can only be performed when the linked pool is out of range, and then the rate is updated such that the pool is just barely at the respective edge of its price range. In this case, LPers do not incur an arbitrage loss. It is expected that these updates occur rarely.
+In the V1 version of the contract, the stored value can only be updated when the linked pool is out of range (via `updateToEdge()`), and then the rate is updated such that the pool is just at the respective edge of its price range. In this case, LPers do not incur an arbitrage loss. It is expected that these updates occur rarely.
 
-The rateprovider supports ECLPs in both Balancer V2 and Balancer V3. The Balancer version needs to be indicated in the constructor.
+The repository contains a version of the updatable rateprovider for Balancer V2 and another version for Balancer V3.
 
 A potential accounting problem occurs if protocol fees are taken on underlying yield while the rateprovider updates. To avoid this, for Balancer V3, the pool must not take protocol fees on underlying yield. For Balancer V2, the rateprovider must be authorized to temporarily set protocol fees to 0.
 
-The update method is permissioned and can only be performed by the respective authorized role. The reason for this is to protect against unknown potential attacks that might be available by performing an update together with some other operation. While we are not aware of any such attack, making the update permissioned serves as a conservative approach here.
+The update method is permissioned and can only be performed by the respective authorized role. This is a conservative measure to protect against potential unknown attacks that might be available by performing an update together with some other manipulation. While we are not aware of any such attack, making the update permissioned serves as a conservative approach here.
 
 ## Dependencies
 
-Dependencies are managed using foundry's system (and therefore are installed automatically on clone).
+Dependencies are managed using foundry's system, i.e., git submodules.
 
 Non-standard dependencies:
-- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2, and some related interfaces in the Gyro system required for the V2 variant.
+- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2, and some related interfaces in the Gyroscope system required for the V2 variant.
 
 The code is formatted using `forge fmt`.
 
 ## Deployment & Operation
 
-### Common
+### Common for Balancer V2 and V3
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
 
-1. When deploying the `UpdatableRateProvider`, the deployer specifies the chainlink feed and the admin.
+1. When deploying the `UpdatableRateProvider`, the deployer specifies the `feed` rateprovider, the admin, and (optionally) the updater; in the V2 variant, they also specify the contracts used to update the protocol fee during update.
 2. They then specify the `UpdatableRateProvider` as the rate provider of the pool and deploy the pool. The rateprovider will work in this state, but the update function is not available (it would revert).
 3. The admin then calls `UpdatableRateProvider.setPool()` to connect the rateprovider to the pool. This can only be done once. The update function is then available.
 
@@ -36,22 +36,22 @@ An `UpdatableRateProvider` *must not* be used for more than one pool. We cannot 
 
 ### Balancer V2 Variant
 
-The Balancer V2 variant of the ECLP cannot differentiate between swap fees and rate provider changes for the purpose of computing protocol fees. To work around this, `UpdatableRateProviderBalV2` performs the following actions:
+The Balancer V2 variant of the ECLP cannot differentiate between swap fees and rate provider changes for the purpose of collecting protocol fees. An update of the rateprovider would be registered as yield, which is likely undesirable. To work around this, `UpdatableRateProviderBalV2` performs the following actions:
 
 - It joins the pool with a small amount. This sets the `lastInvariant` state value of the ECLP that tracks protocol fees.
 - It sets the protocol fee to 0, saving the previous value.
 - It updates its rateprovider value.
-- It then resets the protocol fee to its previous value.
-- It exits the pool again.
+- It exits the pool again to, again, reset `lastInvariant`.
+- In then resets the protocol fee to its previous value.
 
 Because of this, the following additional steps are needed for deployment:
 
-4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool.
+4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool through the `GovernanceRoleManager`.
 5. Someone has to transfer a small amount of both pool tokens to the `UpdatableRateProvider` (for joining and exiting).
 
 ### Balancer V3 Variant
 
-For the Balancer V3 variant, it must be made sure that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Nothing else needs to be done.
+For the Balancer V3 variant, it must be ensured that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Nothing else needs to be done.
 
 ## Source Tour
 
@@ -63,9 +63,9 @@ For the Balancer V3 variant, it must be made sure that the pool does not take pr
 
 We perform some basic analysis to derive the formulas used in `BaseUpdatableRateProvider._updateToEdge()` and to illustrate the arbitrage safety.
 
-In the following, let $r$ be the current rate returned by the chainlink feed, call the pool assets x and y (corresponding to indices 0 and 1 in the API functions), let $\delta_x$ and $\delta_y$ be the current (pre-update) scaling rates of the pool, and let $\alpha$ and $\beta$ be the corresponding ECLP parameters. Note that either $\delta_x$ or $\delta_y$ correspond to the current value of the `UpdatableRateProvider` (depending on whether it's associated with asset x or asset y) and the other rate may be given by another rateprovider or may just be 1.
+In the following, let $r$ be the current rate returned by the feed, call the pool assets x and y (corresponding to asset indices 0 and 1), let $\delta_x$ and $\delta_y$ be the current (pre-update) scaling rates of the pool, and let $\alpha$ and $\beta$ be the corresponding ECLP parameters. Note that either $\delta_x$ or $\delta_y$ correspond to the current value of the `UpdatableRateProvider` (depending on whether it's associated with asset x or asset y) and the other rate may be given by another rateprovider or may just be 1.
 
-Note also that $\alpha$ and $\beta$ correspond do the "inner" (post rate-scaling) ECLP curve. The "outer" values (which are the actual minimal/maximal prices quoted by the pool) corresponding to these are
+Note also that $\alpha$ and $\beta$ are the lower/upper bound of the price range of the "inner" (post rate-scaling) ECLP curve. The "outer" values (which are the actual minimal/maximal prices quoted by the pool) corresponding to these are
 
 $$
 \begin{align}
@@ -77,9 +77,9 @@ $$
 
 We say (and indicate in the `ValueUpdated` event) that the pool is out of range `BELOW` if the true price is below $\alpha'$ and it's out of range `ABOVE` if the true price is above $\alpha'$.
 
-### Formulas for `.updateToEdge()`
+### Formulas for `updateToEdge()`
 
-`.updateToEdge()` checks that the pool is out of range and then updates the rateprovider such that the pool is just at the corresponding edge of its price range post-update (lower edge if the true price is below the price range pre-update, upper edge if the price is above the price range pre-update). The following formulas are implemented in `BaseUpdatableRateProvider._updateToEdge()`.
+`updateToEdge()` checks that the pool is out of range and then updates the rateprovider such that the pool is just at the corresponding edge of its price range post-update (lower edge if the true price is below the price range pre-update, upper edge if the price is above the price range pre-update). The following formulas are implemented in `BaseUpdatableRateProvider._updateToEdge()`.
 
 If the `UpdatableRateProvider` corresponds to asset x, then the pool is out of range `BELOW` iff
 
