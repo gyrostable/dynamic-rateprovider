@@ -70,7 +70,7 @@ Note also that $\alpha$ and $\beta$ are the lower/upper bound of the price range
 $$
 \begin{align}
 \alpha' &:= \alpha \cdot \frac{\delta_x}{\delta_y}
-\\[.7em]
+\\
 \beta' &:= \beta \cdot \frac{\delta_x}{\delta_y}
 \end{align}
 $$
@@ -86,7 +86,7 @@ If the `UpdatableRateProvider` corresponds to asset x, then the pool is out of r
 $$
 \begin{align}
 && \frac{r}{\delta_y} &< \alpha' = \alpha \cdot \frac{\delta_x}{\delta_y}
-\\[.7em]
+\\
 \Leftrightarrow&& r / \alpha &< \delta_x
 \end{align}
 $$
@@ -96,7 +96,7 @@ and it is out of range `ABOVE` iff
 $$
 \begin{align}
 && \frac{r}{\delta_y} &> \beta' = \beta \cdot \frac{\delta_x}{\delta_y}
-\\[.7em]
+\\
 \Leftrightarrow&& r / \beta &> \delta_x
 \end{align}
 $$
@@ -108,7 +108,7 @@ Vice versa, if the `UpdatableRateProvider` corresponds to asset y, then the pool
 $$
 \begin{align}
 && \frac{\delta_x}{r} &< \alpha' = \alpha \cdot \frac{\delta_x}{\delta_y}
-\\[.7em]
+\\
 \Leftrightarrow && \delta_y &< \alpha \cdot r
 \end{align}
 $$
@@ -118,7 +118,7 @@ and it is out of range `ABOVE` iff
 $$
 \begin{align}
 && \frac{\delta_x}{r} &> \beta' = \beta \cdot \frac{\delta_x}{\delta_y}
-\\[.7em]
+\\
 \Leftrightarrow && \delta_y &> \beta \cdot r
 \end{align}
 $$
