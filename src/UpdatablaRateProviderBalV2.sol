@@ -34,7 +34,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     //     later.
     // - `_gyroConfigManager`: Address of the `GyroConfigManager` that we can use to set swap fees.
     // - `_governanceRoleManager`: Address of the `GovernanceRoleManager` that we can use to set
-    // swap fees.
+    //   swap fees.
     constructor(
         address _feed,
         bool _invert,
@@ -63,32 +63,26 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 
-        // Add a small amount of assets to the pool to update `lastInvariant`, which tracks protocol
-        // fees.
-        _joinPoolAll(pool);
-        // TODO ^^ not required when protocol fees are explicit 0 right??
-        // TODO join pool
-
-        // Set protocol fees to 0 so they don't get in the way when updating our rate. Store the old
-        // value. We also have to store _if_ protocol fees are set for this pool because they follow
-        // a default cascade.
+        // Unless protocol fees are 0, we need to set them to 0 so they don't get in the way when
+        // updating our rate. We do a join+exit combo with a small amount around our updating of our
+        // rate to update the accounting for protocol fees (`lastInvariant` in the ECLP). Note that
+        // order matters here. We store the old value to restore it later. We also have to store
+        // _if_ protocol fees are set for this pool because they follow a default cascade.
         ProtocolFeeSetting memory oldProtocolFees = _getPoolProtocolFee(pool);
 
         // If they are already set to explicit 0, we do not need to do anything, and we don't. This
-        // saves a bit of unnecessary interaction with the governanceRoleManager.
+        // saves a bit of unnecessary interaction.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
+            _joinPoolAll(pool);
             _setPoolProtocolFee(pool, ProtocolFeeSetting(true, 0));
         }
 
         (IGyroECLPPool.Params memory params,) = IGyroECLPPool(pool).getECLPParams();
         _updateToEdge(uint256(params.alpha), uint256(params.beta));
 
-        // Exit the pool to update `lastInvariant` again.
-        _exitPoolAll(pool);
-
-        // Reset the protocol fees.
-
+        // Update protocol fee accounting and reset their config.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
+            _exitPoolAll(pool);
             _setPoolProtocolFee(pool, oldProtocolFees);
         }
     }
