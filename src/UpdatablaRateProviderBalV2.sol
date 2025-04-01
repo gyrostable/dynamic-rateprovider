@@ -11,6 +11,8 @@ import {IVault, IERC20 as IERC20Bal, IAsset} from "balancer-v2-interfaces/vault/
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/WeightedPoolUserData.sol";
 
+/// @notice Balancer V2 variant of the updatable rateprovider for volatile asset pairs in Gyroscope
+/// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// @notice Connected `GyroConfigManager` used to set the protocol fee to 0 during update.
     IGyroConfigManager public immutable gyroConfigManager;

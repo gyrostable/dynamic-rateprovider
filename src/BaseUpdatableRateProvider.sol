@@ -8,8 +8,6 @@ import {IRateProvider} from "balancer-v3-interfaces/solidity-utils/helpers/IRate
 
 import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
 
-import {IVault as IVaultBalV3} from "balancer-v3-interfaces/vault/IVault.sol";
-
 abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, IRateProvider {
     using FixedPoint for uint256;
 
@@ -36,7 +34,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     /// attached to token1. Settable once, together with `pool`.
     bool public thisIsToken0;
 
-    /// @notice Current value.
+    /// @notice Current value. Equal to `.getRate()`.
     uint256 public value;
 
     /// @notice The role that can call the update function.
@@ -100,7 +98,6 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else if (value < valueAbove) {
                 _setValue(valueAbove, OutOfRangeSide.ABOVE);
             } else {
-                // SOMEDAY should we revert here or just do nothing?
                 revert("Pool not out of range");
             }
         } else {
@@ -111,7 +108,6 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else if (value > valueAbove) {
                 _setValue(valueAbove, OutOfRangeSide.ABOVE);
             } else {
-                // SOMEDAY should we revert here or just do nothing?
                 revert("Pool not out of range");
             }
         }

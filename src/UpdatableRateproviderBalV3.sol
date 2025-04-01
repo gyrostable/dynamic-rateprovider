@@ -8,6 +8,8 @@ import {
 import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
 import {TokenInfo} from "balancer-v3-interfaces/vault/VaultTypes.sol";
 
+/// @notice Balancer V3 variant of the updatable rateprovider for volatile asset pairs in Gyroscope
+/// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     /// @notice Parameters:
     ///
