@@ -18,7 +18,9 @@ The update method is permissioned and can only be performed by the respective au
 Dependencies are managed using foundry's system (and therefore are installed automatically on clone).
 
 Non-standard dependencies:
-- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2.
+- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for the ECLP under Balancer v2, and some related interfaces in the Gyro system required for the V2 variant.
+
+The code is formatted using `forge fmt`.
 
 ## Deployment & Operation
 
