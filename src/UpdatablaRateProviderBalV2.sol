@@ -1,7 +1,12 @@
 pragma solidity ^0.8.24;
 
 import {BaseUpdatableRateProvider} from "./BaseUpdatableRateProvider.sol";
+
+import {IGyroBasePool} from "gyro-concentrated-lps-balv2/IGyroBasePool.sol";
 import {IGyroECLPPool} from "gyro-concentrated-lps-balv2/IGyroECLPPool.sol";
+import {IGyro2CLPPool} from "gyro-concentrated-lps-balv2/IGyro2CLPPool.sol";
+import {IGyro3CLPPool} from "gyro-concentrated-lps-balv2/IGyro3CLPPool.sol";
+
 import {IGovernanceRoleManager} from "gyro-concentrated-lps-balv2/IGovernanceRoleManager.sol";
 import {IGyroConfig} from "gyro-concentrated-lps-balv2/IGyroConfig.sol";
 import {IGyroConfigManager} from "gyro-concentrated-lps-balv2/IGyroConfigManager.sol";
@@ -11,9 +16,15 @@ import {IVault, IERC20 as IERC20Bal, IAsset} from "balancer-v2-interfaces/vault/
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/WeightedPoolUserData.sol";
 
+import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
+import {LogExpMath} from "balancer-v3/pkg/solidity-utils/contracts/math/LogExpMath.sol";
+
 /// @notice Balancer V2 variant of the updatable rateprovider for volatile asset pairs in Gyroscope
 /// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
+    using FixedPoint for uint256;
+    using LogExpMath for uint256;
+
     /// @notice Connected `GyroConfigManager` used to set the protocol fee to 0 during update.
     IGyroConfigManager public immutable gyroConfigManager;
 
@@ -32,7 +43,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     /// @notice Some collected pool metadata we pass around.
     struct PoolMetadata {
-        IGyroECLPPool pool;
+        IGyroBasePool pool;  // Additionally satisifes one of the IGyro*Pool interfaces based on `poolType`.
+        PoolType poolType;
         IVault vault;
         bytes32 poolId;
         IERC20Bal[] tokens;
@@ -65,10 +77,31 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
     /// @param _pool A Balancer V2 ECLP
-    function setPool(address _pool, PoolType poolType) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        IGyroECLPPool pool_ = IGyroECLPPool(_pool);
-        bool _thisIsToken0 = _calcThisIsToken0(pool_.rateProvider0(), pool_.rateProvider1());
-        _setPool(_pool, poolType, _thisIsToken0);
+    function setPool(address _pool, PoolType _poolType) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address[] memory rateProviders = _getRateProviders(_pool, _poolType);
+        _setPool(_pool, _poolType, _calcOurTokenIx(rateProviders));
+    }
+
+    function _getRateProviders(address _pool, PoolType _poolType) internal view returns (address[] memory rateProviders) {
+        if (_poolType == PoolType.ECLP) {
+            IGyroECLPPool pool_ = IGyroECLPPool(_pool);
+            rateProviders = new address[](2);
+            rateProviders[0] = pool_.rateProvider0();
+            rateProviders[1] = pool_.rateProvider1();
+        } else if (_poolType == PoolType.C2LP) {
+            IGyro2CLPPool pool_ = IGyro2CLPPool(_pool);
+            rateProviders = new address[](2);
+            rateProviders[0] = pool_.rateProvider0();
+            rateProviders[1] = pool_.rateProvider1();
+        } else if (_poolType == PoolType.C3LP) {
+            IGyro3CLPPool pool_ = IGyro3CLPPool(_pool);
+            rateProviders = new address[](3);
+            rateProviders[0] = pool_.rateProvider0();
+            rateProviders[1] = pool_.rateProvider1();
+            rateProviders[2] = pool_.rateProvider2();
+        } else {
+            assert(false);
+        }
     }
 
     /// @notice If the pool is out of range, update this rateprovider such that the true current
@@ -78,7 +111,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 
-        PoolMetadata memory meta = _getPoolMetadata(pool);
+        PoolMetadata memory meta = _getPoolMetadata(pool, poolType);
 
         // Unless protocol fees are 0, we need to set them to 0 so they don't get in the way when
         // updating our rate. We do a join+exit combo with a small amount around our updating of our
@@ -94,8 +127,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
             _setPoolProtocolFee(address(meta.pool), ProtocolFeeSetting(true, 0));
         }
 
-        (IGyroECLPPool.Params memory params,) = meta.pool.getECLPParams();
-        _updateToEdge(uint256(params.alpha), uint256(params.beta));
+        (uint256 alpha, uint256 beta) = _getPriceBounds(meta);
+        _updateToEdge(alpha, beta);
 
         // Update protocol fee accounting and reset their config.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
@@ -104,17 +137,36 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         }
     }
 
-    function _getPoolMetadata(address _pool) internal view returns (PoolMetadata memory meta) {
-        IGyroECLPPool pool_ = IGyroECLPPool(_pool);
+    function _getPoolMetadata(address _pool, PoolType _poolType) internal view returns (PoolMetadata memory meta) {
+        IGyroBasePool pool_ = IGyroBasePool(_pool);
         IVault vault_ = IVault(pool_.getVault());
         bytes32 poolId_ = pool_.getPoolId();
 
         meta.pool = pool_;
+        meta.poolType = _poolType;
         meta.vault = vault_;
         meta.poolId = poolId_;
         (meta.tokens, meta.poolBalancesPreJoin,) = vault_.getPoolTokens(poolId_);
 
         require(meta.tokens.length == 2, "Unexpected number of tokens");
+    }
+
+    function _getPriceBounds(PoolMetadata memory meta) internal view returns (uint256, uint256) {
+        if (meta.poolType == PoolType.ECLP) {
+            (IGyroECLPPool.Params memory params,) = IGyroECLPPool(address(meta.pool)).getECLPParams();
+            return (uint256(params.alpha), uint256(params.beta));
+        } else if (meta.poolType == PoolType.C2LP) {
+            uint256[2] memory sqrtParams = IGyro2CLPPool(address(meta.pool)).getSqrtParameters();
+            return (sqrtParams[0].mulDown(sqrtParams[0]), sqrtParams[1].mulDown(sqrtParams[1]));
+        } else if (meta.poolType == PoolType.C3LP) {
+            uint256 root3Alpha = IGyro3CLPPool(address(meta.pool)).getRoot3Alpha();
+            uint256 alpha = root3Alpha.pow(3 * uint256(LogExpMath.ONE_18));
+            // NB the 3CLP is symmetric, i.e., beta = 1 / alpha.
+            return (alpha, FixedPoint.ONE.divDown(alpha));
+        } else {
+            assert(false);
+            return (0, 0);  // unreachable, to make the compiler happy.
+        }
     }
 
     // Join the pool with (potentially) all our assets.

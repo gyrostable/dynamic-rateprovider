@@ -57,11 +57,11 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         if (poolType == PoolType.ECLP) {
             GyroECLPPoolImmutableData memory immutableData =
                 IGyroECLPPool(pool).getGyroECLPPoolImmutableData();
-            _updateToEdge2Assets(uint256(immutableData.paramsAlpha), uint256(immutableData.paramsBeta));
+            _updateToEdge(uint256(immutableData.paramsAlpha), uint256(immutableData.paramsBeta));
         } else if (poolType == PoolType.C2LP) {
             Gyro2CLPPoolImmutableData memory immutableData =
                 IGyro2CLPPool(pool).getGyro2CLPPoolImmutableData();
-            _updateToEdge2Assets(
+            _updateToEdge(
                 immutableData.sqrtAlpha.mulDown(immutableData.sqrtAlpha),
                 immutableData.sqrtBeta.mulDown(immutableData.sqrtBeta)
             );

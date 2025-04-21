@@ -98,11 +98,13 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         }
     }
 
-    // Updater function for 2 assets. alpha and beta are the inner price bounds for the price of
-    // token0 denominated in units of token1.
-    function _updateToEdge2Assets(uint256 alpha, uint256 beta) internal {
+    // Updater function. alpha and beta are the inner price bounds for the price of token0
+    // denominated in units of the numeraire token (token1 for 2 assets or token2 for 3 assets).
+    function _updateToEdge(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
-        if (ourTokenIx == 0) {
+        bool thisIsNumeraire =
+            poolType == PoolType.C3LP ? ourTokenIx == 1 : ourTokenIx == 2;
+        if (thisIsNumeraire) {
             uint256 valueBelow = feedValue.divDown(alpha);
             uint256 valueAbove = feedValue.divDown(beta);
             if (value > valueBelow) {
@@ -112,7 +114,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else {
                 revert("Pool not out of range");
             }
-        } else if (ourTokenIx == 1) {
+        } else {
             uint256 valueBelow = feedValue.mulDown(alpha);
             uint256 valueAbove = feedValue.mulDown(beta);
             if (value < valueBelow) {
@@ -122,8 +124,6 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else {
                 revert("Pool not out of range");
             }
-        } else {
-            assert(false);
         }
     }
 
