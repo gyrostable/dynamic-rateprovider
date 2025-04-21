@@ -18,6 +18,12 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         ABOVE
     }
 
+    enum PoolType {
+        ECLP,
+        C2LP,
+        C3LP
+    }
+
     /// @notice Connected price feed. This is a RateProvider (often a ChainlinkRateProvider or a
     /// transformation of one).
     IRateProvider public immutable feed;
@@ -30,9 +36,12 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     /// @notice Address of the connected pool. Settable once by the owner.
     address public pool;
 
-    /// @notice True if this rateprovider is attached to token0 of the pool. Otherwise, it's
-    /// attached to token1. Settable once, together with `pool`.
-    bool public thisIsToken0;
+    /// @notice Type of the connected pool. Settable once by the owner.
+    PoolType public poolType;
+
+    /// @notice Index of the pool token that this rateprovider is attached to. Settable once,
+    // together with `pool`.
+    uint8 ourTokenIx;
 
     /// @notice Current value. Equal to `.getRate()`.
     uint256 public value;
@@ -42,7 +51,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
 
     /// @notice Emitted at most once during contract lifetime, when the admin has set the connected
     /// pool.
-    event PoolSet(address pool, bool thisIsToken0);
+    event PoolSet(address indexed pool, PoolType poolType, uint8 ourTokenIx);
 
     /// @notice Emitted whenever the stored value (the rate) is updated.
     event ValueUpdated(uint256 value, OutOfRangeSide why);
@@ -69,11 +78,12 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         return value;
     }
 
-    function _setPool(address _pool, bool _thisIsToken0) internal {
+    function _setPool(address _pool, PoolType _poolType, uint8 _ourTokenIx) internal {
         require(pool == ZERO_ADDRESS, "Pool already set");
         pool = _pool;
-        thisIsToken0 = _thisIsToken0;
-        emit PoolSet(_pool, thisIsToken0);
+        poolType = _poolType;
+        ourTokenIx = _ourTokenIx;
+        emit PoolSet(_pool, _poolType, _ourTokenIx);
     }
 
     function _setValue(uint256 _value, OutOfRangeSide why) internal {
@@ -88,9 +98,11 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         }
     }
 
-    function _updateToEdge(uint256 alpha, uint256 beta) internal {
+    // Updater function for 2 assets. alpha and beta are the inner price bounds for the price of
+    // token0 denominated in units of token1.
+    function _updateToEdge2Assets(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
-        if (thisIsToken0) {
+        if (ourTokenIx == 0) {
             uint256 valueBelow = feedValue.divDown(alpha);
             uint256 valueAbove = feedValue.divDown(beta);
             if (value > valueBelow) {
@@ -100,7 +112,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else {
                 revert("Pool not out of range");
             }
-        } else {
+        } else if (ourTokenIx == 1) {
             uint256 valueBelow = feedValue.mulDown(alpha);
             uint256 valueAbove = feedValue.mulDown(beta);
             if (value < valueBelow) {
@@ -110,21 +122,22 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
             } else {
                 revert("Pool not out of range");
             }
+        } else {
+            assert(false);
         }
     }
 
     /// @notice Calculate the `thisIsToken0` flag given the two rateproviders.
-    function _calcThisIsToken0(address rateProvider0, address rateProvider1)
+    function _calcOurTokenIx(address[] memory rateProviders)
         internal
         view
-        returns (bool)
+        returns (uint8)
     {
-        if (rateProvider0 == address(this)) {
-            return true;
-        } else if (rateProvider1 == address(this)) {
-            return false;
-        } else {
-            revert("Rateprovider not configured in pool.");
+        for (uint8 i=0; i < rateProviders.length; ++i) {
+            if (rateProviders[i] == address(this)) {
+                return i;
+            }
         }
+        revert("Rateprovider not configured in pool.");
     }
 }

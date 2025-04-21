@@ -65,10 +65,10 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
     /// @param _pool A Balancer V2 ECLP
-    function setPool(address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPool(address _pool, PoolType poolType) external onlyRole(DEFAULT_ADMIN_ROLE) {
         IGyroECLPPool pool_ = IGyroECLPPool(_pool);
         bool _thisIsToken0 = _calcThisIsToken0(pool_.rateProvider0(), pool_.rateProvider1());
-        _setPool(_pool, _thisIsToken0);
+        _setPool(_pool, poolType, _thisIsToken0);
     }
 
     /// @notice If the pool is out of range, update this rateprovider such that the true current
