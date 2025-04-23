@@ -18,6 +18,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         ABOVE
     }
 
+    /// @notice Type of Gyro pool.
     enum PoolType {
         ECLP,
         C2LP,
@@ -41,7 +42,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
 
     /// @notice Index of the pool token that this rateprovider is attached to. Settable once,
     // together with `pool`.
-    uint8 ourTokenIx;
+    uint8 public ourTokenIx;
 
     /// @notice Current value. Equal to `.getRate()`.
     uint256 public value;
