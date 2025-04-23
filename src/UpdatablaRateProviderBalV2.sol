@@ -232,7 +232,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     ) internal pure returns (uint256 shares) {
         shares = type(uint256).max;
         for (uint256 i = 0; i < balances.length; ++i) {
-            // Note that decimal/rate scaling factors cancel out and the result is an 18-decimal number
+            // Note that decimal/rate scaling factors cancel out and the result is an 18-decimal
+            // number
             // (i.e., in the same scale as LP shares).
             if (poolBalances[i] > 0) {
                 uint256 assetShares = totalSupply * balances[i] / poolBalances[i];
