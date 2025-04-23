@@ -159,8 +159,6 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         meta.vault = vault_;
         meta.poolId = poolId_;
         (meta.tokens, meta.poolBalancesPreJoin,) = vault_.getPoolTokens(poolId_);
-
-        require(meta.tokens.length == 2, "Unexpected number of tokens");
     }
 
     function _getPriceBounds(PoolMetadata memory meta) internal view returns (uint256, uint256) {
@@ -232,11 +230,19 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         uint256[] memory poolBalances,
         uint256 totalSupply
     ) internal pure returns (uint256 shares) {
-        // Note that decimal/rate scaling factors cancel out and the result is an 18-decimal number
-        // (i.e., in the same scale as LP shares).
-        uint256 shares0 = totalSupply * balances[0] / poolBalances[0];
-        uint256 shares1 = totalSupply * balances[1] / poolBalances[1];
-        shares = shares0 <= shares1 ? shares0 : shares1;
+        shares = type(uint256).max;
+        for (uint256 i = 0; i < balances.length; ++i) {
+            // Note that decimal/rate scaling factors cancel out and the result is an 18-decimal number
+            // (i.e., in the same scale as LP shares).
+            if (poolBalances[i] > 0) {
+                uint256 assetShares = totalSupply * balances[i] / poolBalances[i];
+                if (assetShares < shares) {
+                    shares = assetShares;
+                }
+            }
+            // If poolBalances[i] == 0 (a mostly theoretical concern), we don't need to put any of
+            // those assets in, so they don't constrain the shares we get out.
+        }
 
         // Just as a conservative safety margin if the pool rounds down slightly more than we do
         // here.
@@ -244,6 +250,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         shares /= 2;
 
         if (shares == 0) {
+            // In this case, someone has to give this contract a bit more assets.
             revert("Not enough assets.");
         }
     }
@@ -261,11 +268,12 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     // Interacts with Balancer to join the pool with specified amounts.
     function _joinPoolFor(uint256 bptAmount, PoolMetadata memory meta) internal {
         // We don't use limits b/c they don't matter here, and amounts are small anyways.
-        uint256[] memory maxAmountsIn = new uint256[](2);
-        maxAmountsIn[0] = type(uint256).max;
-        maxAmountsIn[1] = type(uint256).max;
+        uint256[] memory maxAmountsIn = new uint256[](meta.tokens.length);
+        for (uint256 i = 0; i < meta.tokens.length; ++i) {
+            maxAmountsIn[i] = type(uint256).max;
+        }
 
-        // The ECLP uses the same user data encoding as the weighted pool.
+        // All CLPs use the same user data encoding as the weighted pool.
         bytes memory userData =
             abi.encode(WeightedPoolUserData.JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, bptAmount);
 
@@ -284,9 +292,10 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     // Same as _joinPoolFor() but for exiting.
     function _exitPoolFor(uint256 bptAmount, PoolMetadata memory meta) internal {
-        uint256[] memory minAmountsOut = new uint256[](2);
-        minAmountsOut[0] = 0;
-        minAmountsOut[1] = 0;
+        uint256[] memory minAmountsOut = new uint256[](meta.tokens.length);
+        for (uint256 i = 0; i < meta.tokens.length; ++i) {
+            minAmountsOut[i] = 0;
+        }
 
         bytes memory userData =
             abi.encode(WeightedPoolUserData.ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmount);
