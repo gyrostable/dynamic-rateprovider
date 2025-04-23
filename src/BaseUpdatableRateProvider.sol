@@ -103,8 +103,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     // denominated in units of the numeraire token (token1 for 2 assets or token2 for 3 assets).
     function _updateToEdge(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
-        bool thisIsNumeraire =
-            poolType == PoolType.C3LP ? ourTokenIx == 1 : ourTokenIx == 2;
+        bool thisIsNumeraire = poolType == PoolType.C3LP ? ourTokenIx == 1 : ourTokenIx == 2;
         if (thisIsNumeraire) {
             uint256 valueBelow = feedValue.divDown(alpha);
             uint256 valueAbove = feedValue.divDown(beta);
@@ -129,12 +128,8 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     }
 
     /// @notice Calculate the `thisIsToken0` flag given the two rateproviders.
-    function _calcOurTokenIx(address[] memory rateProviders)
-        internal
-        view
-        returns (uint8)
-    {
-        for (uint8 i=0; i < rateProviders.length; ++i) {
+    function _calcOurTokenIx(address[] memory rateProviders) internal view returns (uint8) {
+        for (uint8 i = 0; i < rateProviders.length; ++i) {
             if (rateProviders[i] == address(this)) {
                 return i;
             }

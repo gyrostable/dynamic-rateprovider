@@ -32,7 +32,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     IGovernanceRoleManager public immutable governanceRoleManager;
 
     /// @notice Key used by pools to retrieve their swap fees, see:
-    /// https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol 
+    /// https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol
     bytes32 internal constant PROTOCOL_SWAP_FEE_PERC_KEY = "PROTOCOL_SWAP_FEE_PERC";
 
     /// @notice Internal helper struct to back up and restore protocol fees.
@@ -43,7 +43,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     /// @notice Some collected pool metadata we pass around.
     struct PoolMetadata {
-        IGyroBasePool pool;  // Additionally satisifes one of the IGyro*Pool interfaces based on `poolType`.
+        IGyroBasePool pool; // Additionally satisifes one of the IGyro*Pool interfaces based on
+            // `poolType`.
         PoolType poolType;
         IVault vault;
         bytes32 poolId;
@@ -53,12 +54,15 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     /// @param _feed A RateProvider to use for updates
     /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself.
-    /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later and
+    /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later
+    /// and
     ///     manage permissions
     /// @param _updater Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
-    ///     Pass the zero address if you don't want to set an updater yet; the admin can manage roles
+    ///     Pass the zero address if you don't want to set an updater yet; the admin can manage
+    /// roles
     ///     later.
-    /// @param _gyroConfigManager Address of the `GyroConfigManager` that we can use to set swap fees
+    /// @param _gyroConfigManager Address of the `GyroConfigManager` that we can use to set swap
+    /// fees
     /// @param _governanceRoleManager Address of the `GovernanceRoleManager` that we can use to set
     ///   swap fees.
     constructor(
@@ -82,7 +86,11 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         _setPool(_pool, _poolType, _calcOurTokenIx(rateProviders));
     }
 
-    function _getRateProviders(address _pool, PoolType _poolType) internal view returns (address[] memory rateProviders) {
+    function _getRateProviders(address _pool, PoolType _poolType)
+        internal
+        view
+        returns (address[] memory rateProviders)
+    {
         if (_poolType == PoolType.ECLP) {
             IGyroECLPPool pool_ = IGyroECLPPool(_pool);
             rateProviders = new address[](2);
@@ -137,7 +145,11 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         }
     }
 
-    function _getPoolMetadata(address _pool, PoolType _poolType) internal view returns (PoolMetadata memory meta) {
+    function _getPoolMetadata(address _pool, PoolType _poolType)
+        internal
+        view
+        returns (PoolMetadata memory meta)
+    {
         IGyroBasePool pool_ = IGyroBasePool(_pool);
         IVault vault_ = IVault(pool_.getVault());
         bytes32 poolId_ = pool_.getPoolId();
@@ -153,7 +165,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
     function _getPriceBounds(PoolMetadata memory meta) internal view returns (uint256, uint256) {
         if (meta.poolType == PoolType.ECLP) {
-            (IGyroECLPPool.Params memory params,) = IGyroECLPPool(address(meta.pool)).getECLPParams();
+            (IGyroECLPPool.Params memory params,) =
+                IGyroECLPPool(address(meta.pool)).getECLPParams();
             return (uint256(params.alpha), uint256(params.beta));
         } else if (meta.poolType == PoolType.C2LP) {
             uint256[2] memory sqrtParams = IGyro2CLPPool(address(meta.pool)).getSqrtParameters();
@@ -165,7 +178,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
             return (alpha, FixedPoint.ONE.divDown(alpha));
         } else {
             assert(false);
-            return (0, 0);  // unreachable, to make the compiler happy.
+            return (0, 0); // unreachable, to make the compiler happy.
         }
     }
 
@@ -176,7 +189,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         // NB `.getActualSupply()` is like `.totalSupply()` but accounts for the fact that due
         // protocol fees are distributed before the join (so it may be slightly higher than
         // totalSupply).
-        uint256 bptAmount = _calcBptAmount(balances, meta.poolBalancesPreJoin, meta.pool.getActualSupply());
+        uint256 bptAmount =
+            _calcBptAmount(balances, meta.poolBalancesPreJoin, meta.pool.getActualSupply());
 
         _makeApprovals(meta);
         _joinPoolFor(bptAmount, meta);
@@ -224,7 +238,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         uint256 shares1 = totalSupply * balances[1] / poolBalances[1];
         shares = shares0 <= shares1 ? shares0 : shares1;
 
-        // Just as a conservative safety margin if the pool rounds down slightly more than we do here.
+        // Just as a conservative safety margin if the pool rounds down slightly more than we do
+        // here.
         // It really doesn't matter with which amount we join.
         shares /= 2;
 
@@ -244,10 +259,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     }
 
     // Interacts with Balancer to join the pool with specified amounts.
-    function _joinPoolFor(
-        uint256 bptAmount,
-        PoolMetadata memory meta
-    ) internal {
+    function _joinPoolFor(uint256 bptAmount, PoolMetadata memory meta) internal {
         // We don't use limits b/c they don't matter here, and amounts are small anyways.
         uint256[] memory maxAmountsIn = new uint256[](2);
         maxAmountsIn[0] = type(uint256).max;
@@ -271,10 +283,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     }
 
     // Same as _joinPoolFor() but for exiting.
-    function _exitPoolFor(
-        uint256 bptAmount,
-        PoolMetadata memory meta
-    ) internal {
+    function _exitPoolFor(uint256 bptAmount, PoolMetadata memory meta) internal {
         uint256[] memory minAmountsOut = new uint256[](2);
         minAmountsOut[0] = 0;
         minAmountsOut[1] = 0;
@@ -307,7 +316,7 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     }
 
     // See:
-    // https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol 
+    // https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol
     function _getPoolKey(address pool, bytes32 key) internal pure returns (bytes32) {
         return keccak256(abi.encode(key, pool));
     }
