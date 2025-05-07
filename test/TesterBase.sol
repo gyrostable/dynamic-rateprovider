@@ -19,9 +19,8 @@ contract TesterBase is Test {
     // address admin = makeAddr("admin");
     address updater = makeAddr("updater");
 
-    ERC20Mintable token0;
-    ERC20Mintable token1;
-    ERC20Mintable token2;
+    ERC20Mintable[3] tokens;
+    uint256 constant N_TOKENS = 3;
 
     ConstRateProvider feed;
 
@@ -29,15 +28,28 @@ contract TesterBase is Test {
         // TODO needs bumping when we deployed the contracts we need.
         vm.createSelectFork(BASE_RPC_URL, 29914982);
 
-        token0 = new ERC20Mintable();
-        token1 = new ERC20Mintable();
-        token2 = new ERC20Mintable();
+        for (uint256 i=0; i < N_TOKENS; ++i) {
+            tokens[i] = new ERC20Mintable();
+            tokens[i].mint(address(this), 10_000e18);
+        }
 
-        token0.mint(address(this), 10_000e18);
-        token1.mint(address(this), 10_000e18);
-        token2.mint(address(this), 10_000e18);
+        // Sort tokens so they can be used as balance pool tokens as-are.
+        (address ta0, address ta1, address ta2) = sortAddresses(address(tokens[0]), address(tokens[1]), address(tokens[2]));
+        tokens[0] = ERC20Mintable(ta0);
+        tokens[1] = ERC20Mintable(ta1);
+        tokens[2] = ERC20Mintable(ta2);
 
         feed = new ConstRateProvider();
+    }
+
+    function sortAddresses(address a, address b, address c) internal pure returns (address, address, address) {
+        address temp;
+
+        if (a > b) { temp = a; a = b; b = temp; }
+        if (b > c) { temp = b; b = c; c = temp; }
+        if (a > b) { temp = a; a = b; b = temp; }
+
+        return (a, b, c);
     }
 }
 

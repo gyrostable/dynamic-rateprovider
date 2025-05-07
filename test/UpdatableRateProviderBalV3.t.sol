@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
 import {IRouter} from "balancer-v3-interfaces/vault/IRouter.sol";
 
+import {IPermit2} from "permit2/interfaces/IPermit2.sol";
+
 import {TesterBase} from "./TesterBase.sol";
 import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV3.sol";
 import {
@@ -12,6 +14,8 @@ import {
 import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
 
 import "balancer-v3-interfaces/vault/VaultTypes.sol";
+
+import "forge-std/console.sol";
 
 contract UpdatableRateProviderBalV3Test is TesterBase {
     UpdatableRateProviderBalV3 updatableRateProvider;
@@ -35,15 +39,16 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         updatableRateProvider = new UpdatableRateProviderBalV3(address(feed), false, address(this), updater);
 
         // Deploy 2CLP with the updatable rate provider for token0.
-        TokenConfig[] memory tokens = new TokenConfig[](2);
-        tokens[0] = TokenConfig({token: token0, tokenType: TokenType.WITH_RATE, rateProvider: updatableRateProvider, paysYieldFees: false});
-        tokens[1] = TokenConfig({token: token1, tokenType: TokenType.STANDARD, rateProvider: IRateProvider(address(0)), paysYieldFees: false});
-        PoolRoleAccounts memory roleAccounts = PoolRoleAccounts({pauseManager: address(this), swapFeeManager: address(this), poolCreator: address(this)});
+        TokenConfig[] memory tokenConfigs = new TokenConfig[](2);
+        tokenConfigs[0] = TokenConfig({token: tokens[0], tokenType: TokenType.WITH_RATE, rateProvider: updatableRateProvider, paysYieldFees: false});
+        tokenConfigs[1] = TokenConfig({token: tokens[1], tokenType: TokenType.STANDARD, rateProvider: IRateProvider(address(0)), paysYieldFees: false});
+        // poolCreator must be address(0) b/c this is a "standard pool" (from a factory I think). O/w we get error `StandardPoolWithCreator()`
+        PoolRoleAccounts memory roleAccounts = PoolRoleAccounts({pauseManager: address(this), swapFeeManager: address(this), poolCreator: address(0)});
         bytes32 salt = "foobar";
         c2lpPool = IGyro2CLPPool(c2lpFactory.create(
             "Test 2CLP",
             "T2CLP",
-            tokens,
+            tokenConfigs,
             c2lpSqrtAlpha,
             c2lpSqrtBeta,
             roleAccounts,
@@ -57,17 +62,41 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
 
         // TODO set pool creator fees to nonzero.
 
-        uint256[] memory maxAmountsIn = new uint256[](2);
-        maxAmountsIn[0] = 100e18;
-        maxAmountsIn[1] = 100e18;
-        vault.addLiquidity(AddLiquidityParams({
-            pool: address(c2lpPool),
-            to: address(this),
-            maxAmountsIn: maxAmountsIn,
-            minBptAmountOut: 0,
-            // TODO this working for initialize?
-            kind: AddLiquidityKind.PROPORTIONAL,
-            userData: ""
-        }));
+        // Make the required approvals and initialize the pool.
+        for (uint256 i=0; i < N_TOKENS; ++i) {
+            tokens[i].approve(address(permit2), type(uint256).max);
+            permit2.approve(address(tokens[i]), address(router), type(uint160).max, type(uint48).max);
+        }
+        IERC20[] memory c2lpTokens = new IERC20[](2);
+        c2lpTokens[0] = tokens[0];
+        c2lpTokens[1] = tokens[1];
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[0] = 100e18;
+        amountsIn[1] = 100e18;
+        router.initialize(
+            address(c2lpPool),
+            c2lpTokens,
+            amountsIn,
+            0,
+            false,
+            ""
+        );
+
+        // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
+
+        // uint256[] memory maxAmountsIn = new uint256[](2);
+        // maxAmountsIn[0] = 100e18;
+        // maxAmountsIn[1] = 100e18;
+        // vault.addLiquidity(AddLiquidityParams({
+        //     pool: address(c2lpPool),
+        //     to: address(this),
+        //     maxAmountsIn: maxAmountsIn,
+        //     minBptAmountOut: 0,
+        //     // TODO this working for initialize?
+        //     kind: AddLiquidityKind.PROPORTIONAL,
+        //     userData: ""
+        // }));
     }
+
+    function testEmpty() public {}
 }
