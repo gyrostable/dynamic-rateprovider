@@ -24,6 +24,10 @@ Non-standard dependencies:
 
 The code is formatted using `forge fmt`.
 
+## Testing
+
+Use `forge test`. This is a fork test and you need `BASE_RPC_URL` in `.env`.
+
 ## Deployment & Operation
 
 ### Common for Balancer V2 and V3

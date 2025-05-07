@@ -13,6 +13,10 @@ remappings = [
   "balancer-v2-interfaces/=lib/balancer-v2-monorepo/pkg/interfaces/contracts/",
   "balancer-v3/=lib/balancer-v3-monorepo/",
   "gyro-concentrated-lps-balv2/=lib/gyro-concentrated-lps-balv2/",
+  # Some remappings for compat with older code used for testing.
+  "@balancer-labs/v2-solidity-utils/=lib/balancer-v2-monorepo/pkg/solidity-utils/",
+  "@balancer-labs/v2-pool-utils/=lib/balancer-v2-monorepo/pkg/pool-utils/",
+  "@openzeppelin/=lib/openzeppelin-contracts/",
 ]
 
 [fmt]
