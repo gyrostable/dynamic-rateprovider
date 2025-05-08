@@ -4,6 +4,7 @@ import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
 import {IRouter} from "balancer-v3-interfaces/vault/IRouter.sol";
 
 import {IPermit2} from "permit2/interfaces/IPermit2.sol";
+import {IAccessControl} from "oz/access/IAccessControl.sol";
 
 import {TesterBase} from "./TesterBase.sol";
 import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV3.sol";
@@ -11,6 +12,7 @@ import {
     IGyro2CLPPool
 } from "balancer-v3-interfaces/pool-gyro/IGyro2CLPPool.sol";
 
+import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
 
 import "balancer-v3-interfaces/vault/VaultTypes.sol";
@@ -29,6 +31,8 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
     IRouter constant router = IRouter(0x3f170631ed9821Ca51A59D996aB095162438DC10);
 
     // alpha = 0.5; beta = 1.5.
+    uint256 constant c2lpAlpha = 0.5e18;
+    uint256 constant c2lpBeta = 1.5e18;
     uint256 constant c2lpSqrtAlpha = 0.707106781186547524e18;
     uint256 constant c2lpSqrtBeta = 1.224744871391589049e18;
     IGyro2CLPPool c2lpPool;
@@ -60,6 +64,9 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
             salt
         ));
 
+        // Register pool in the updatable rateprovider
+        updatableRateProvider.setPool(address(vault), address(c2lpPool), BaseUpdatableRateProvider.PoolType.C2LP);
+        
         // TODO set pool creator fees to nonzero.
 
         // Make the required approvals and initialize the pool.
@@ -98,5 +105,31 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         // }));
     }
 
-    function testEmpty() public {}
+    function testRevertIfNotOutOfRange() public {
+        // feed value didn't change, is still at 1 = in range.
+        vm.expectRevert(bytes("Pool not out of range"));
+        vm.prank(updater);
+        updatableRateProvider.updateToEdge();
+    }
+
+    function testRevertIfNotUpdater() public {
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), updatableRateProvider.UPDATER_ROLE()
+          )
+        );
+        updatableRateProvider.updateToEdge();
+    }
+
+    function testUpdateBelow() public {
+        feed.setRate(0.4e18);
+        vm.prank(updater);
+        updatableRateProvider.updateToEdge();
+    }
+
+    function testUpdateAbove() public {
+        feed.setRate(1.6e18);
+        vm.prank(updater);
+        updatableRateProvider.updateToEdge();
+    }
 }
