@@ -18,6 +18,7 @@ import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
 import "balancer-v3-interfaces/vault/VaultTypes.sol";
 
 import "forge-std/console.sol";
+import "forge-std/Vm.sol";
 
 contract UpdatableRateProviderBalV3Test is TesterBase {
     UpdatableRateProviderBalV3 updatableRateProvider;
@@ -112,6 +113,14 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         updatableRateProvider.updateToEdge();
     }
 
+    function testRevertIfNotOutOfRange2() public {
+        // feed value did change, but is still at 1 = in range.
+        feed.setRate(1.1e18);
+        vm.expectRevert(bytes("Pool not out of range"));
+        vm.prank(updater);
+        updatableRateProvider.updateToEdge();
+    }
+
     function testRevertIfNotUpdater() public {
         vm.expectRevert(
           abi.encodeWithSelector(
@@ -123,8 +132,24 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
 
     function testUpdateBelow() public {
         feed.setRate(0.4e18);
+
+        // For some reason I can't enforce data (newValue) here but below gives an exact match.
+        vm.recordLogs();
+        vm.expectEmit(true, false, false, false);
+        emit BaseUpdatableRateProvider.ValueUpdated(0.8e18, BaseUpdatableRateProvider.OutOfRangeSide.BELOW);
         vm.prank(updater);
         updatableRateProvider.updateToEdge();
+
+        // New value = 0.8 = 0.4 / alpha.
+
+        // TODO this quotes 0.8e18 + 1 - NOT the newValue that is checked exactly below.
+        // WTF?!?
+        vm.assertEq(updatableRateProvider.getRate(), 0.8e18);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // uint256 newValue = uint256(entries[0].topics[1]);
+        (uint256 newValue) = abi.decode(entries[0].data, (uint256));
+        vm.assertEq(newValue, 0.8e18);
     }
 
     function testUpdateAbove() public {
