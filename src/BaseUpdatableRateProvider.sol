@@ -104,7 +104,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     function _updateToEdge(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
         bool thisIsNumeraire = poolType == PoolType.C3LP ? ourTokenIx == 2 : ourTokenIx == 1;
-        if (thisIsNumeraire) {
+        if (!thisIsNumeraire) {
             uint256 valueBelow = feedValue.divDown(alpha);
             uint256 valueAbove = feedValue.divDown(beta);
             if (value > valueBelow) {
