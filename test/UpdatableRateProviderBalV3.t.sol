@@ -91,19 +91,15 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         );
 
         // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
+    }
 
-        // uint256[] memory maxAmountsIn = new uint256[](2);
-        // maxAmountsIn[0] = 100e18;
-        // maxAmountsIn[1] = 100e18;
-        // vault.addLiquidity(AddLiquidityParams({
-        //     pool: address(c2lpPool),
-        //     to: address(this),
-        //     maxAmountsIn: maxAmountsIn,
-        //     minBptAmountOut: 0,
-        //     // TODO this working for initialize?
-        //     kind: AddLiquidityKind.PROPORTIONAL,
-        //     userData: ""
-        // }));
+    function testRevertIfNotUpdater() public {
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), updatableRateProvider.UPDATER_ROLE()
+          )
+        );
+        updatableRateProvider.updateToEdge();
     }
 
     function testRevertIfNotOutOfRange() public {
@@ -118,15 +114,6 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         feed.setRate(1.1e18);
         vm.expectRevert(bytes("Pool not out of range"));
         vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testRevertIfNotUpdater() public {
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), updatableRateProvider.UPDATER_ROLE()
-          )
-        );
         updatableRateProvider.updateToEdge();
     }
 
