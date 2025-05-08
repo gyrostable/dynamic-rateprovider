@@ -55,7 +55,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     event PoolSet(address indexed pool, PoolType poolType, uint8 ourTokenIx);
 
     /// @notice Emitted whenever the stored value (the rate) is updated.
-    event ValueUpdated(uint256 value, OutOfRangeSide why);
+    event ValueUpdated(uint256 value, OutOfRangeSide indexed why);
 
     address internal constant ZERO_ADDRESS = address(0);
 
