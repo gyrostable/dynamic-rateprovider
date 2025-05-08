@@ -12,7 +12,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Copy of MockRateProvider.sol, but Ownable authorization to change the rate. For live on-chain testing.
+// Copy of MockRateProvider.sol, but Ownable authorization to change the rate. For live on-chain
+// testing.
 // Probably not useful in production.
 
 pragma solidity ^0.8.0;

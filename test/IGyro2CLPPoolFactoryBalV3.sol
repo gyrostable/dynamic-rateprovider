@@ -18,4 +18,3 @@ interface IGyro2CLPPoolFactory {
         bytes32 salt
     ) external returns (address pool);
 }
-

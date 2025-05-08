@@ -24,4 +24,3 @@ contract ERC20Mintable is ERC20, Ownable {
         _decimals = newDecimals;
     }
 }
-
