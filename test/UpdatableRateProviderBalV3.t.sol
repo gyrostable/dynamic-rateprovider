@@ -133,28 +133,35 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
     function testUpdateBelow() public {
         feed.setRate(0.4e18);
 
-        // For some reason I can't enforce data (newValue) here but below gives an exact match.
+        // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
+        uint256 expectedNewValue = 0.8e18 + 1;
+
         vm.recordLogs();
-        vm.expectEmit(true, false, false, false);
-        emit BaseUpdatableRateProvider.ValueUpdated(0.8e18, BaseUpdatableRateProvider.OutOfRangeSide.BELOW);
+        vm.expectEmit(true, false, false, true);
+        emit BaseUpdatableRateProvider.ValueUpdated(expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.BELOW);
         vm.prank(updater);
         updatableRateProvider.updateToEdge();
 
-        // New value = 0.8 = 0.4 / alpha.
-
-        // TODO this quotes 0.8e18 + 1 - NOT the newValue that is checked exactly below.
-        // WTF?!?
-        vm.assertEq(updatableRateProvider.getRate(), 0.8e18);
-
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        // uint256 newValue = uint256(entries[0].topics[1]);
-        (uint256 newValue) = abi.decode(entries[0].data, (uint256));
-        vm.assertEq(newValue, 0.8e18);
+        vm.assertEq(updatableRateProvider.getRate(), expectedNewValue);
     }
 
     function testUpdateAbove() public {
         feed.setRate(1.6e18);
+
+        // 1.6 / 1.5. This won't match exactly.
+        uint256 expectedNewValue = 1.066666666666666725e18;
+
+        // We don't check the new value (data) here but match approximately below.
+        vm.expectEmit(true, false, false, false);
+        emit BaseUpdatableRateProvider.ValueUpdated(expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.ABOVE);
+        vm.recordLogs();
         vm.prank(updater);
         updatableRateProvider.updateToEdge();
+
+        vm.assertApproxEqAbs(updatableRateProvider.getRate(), expectedNewValue, 100);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        (uint256 newValue) = abi.decode(logs[0].data, (uint256));
+        vm.assertApproxEqAbs(newValue, expectedNewValue, 100);
     }
 }
