@@ -24,7 +24,7 @@ remappings = [
 [fmt]
 line_length = 100
 tab_width = 4
-number_underscore = "thousands"
+number_underscore = "preserve"
 wrap_comments = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
