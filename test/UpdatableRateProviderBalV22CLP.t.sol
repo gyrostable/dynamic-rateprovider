@@ -2,7 +2,7 @@ pragma solidity ^0.8.24;
 
 import {TesterBaseBalV2} from "./TesterBaseBalV2.sol";
 import {IGyro2CLPPool} from "gyro-concentrated-lps-balv2/IGyro2CLPPool.sol";
-import {IGyro2CLPPoolFactory, ICappedLiquidity, ILocallyPausable} from "./IGyro2CLPPoolFactoryBalV2.sol";
+import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV2.sol";
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 
