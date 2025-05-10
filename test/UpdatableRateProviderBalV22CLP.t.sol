@@ -23,7 +23,7 @@ import "forge-std/Vm.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SafeERC20} from "oz/token/ERC20/utils/SafeERC20.sol";
 
-contract UpdatableRateProviderBalV2Test is TesterBaseBalV2 {
+contract UpdatableRateProviderBalV2Test2CLP is TesterBaseBalV2 {
     using SafeERC20 for IERC20;
 
     IGyro2CLPPoolFactory constant factory =

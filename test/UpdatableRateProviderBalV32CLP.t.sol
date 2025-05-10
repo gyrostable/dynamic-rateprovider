@@ -18,7 +18,7 @@ import "balancer-v3-interfaces/vault/VaultTypes.sol";
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 
-contract UpdatableRateProviderBalV3Test is TesterBaseBalV3 {
+contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
     IGyro2CLPPoolFactory constant factory =
         IGyro2CLPPoolFactory(0xf5CDdF6feD9C589f1Be04899F48f9738531daD59);
 
