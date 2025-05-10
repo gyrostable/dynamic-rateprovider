@@ -130,6 +130,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
         // If they are already set to explicit 0, we do not need to do anything, and we don't. This
         // saves a bit of unnecessary interaction.
+        // TODO what if they're implicit 0? Should also be fine right??
+        // (I think I just didn't wanna model the default cascade)
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
             _joinPoolAll(meta);
             _setPoolProtocolFee(address(meta.pool), ProtocolFeeSetting(true, 0));
