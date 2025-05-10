@@ -1,22 +1,10 @@
 pragma solidity ^0.8.24;
 
-import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
-import {IRouter} from "balancer-v3-interfaces/vault/IRouter.sol";
-
-import {IPermit2} from "permit2/interfaces/IPermit2.sol";
-import {IAccessControl} from "oz/access/IAccessControl.sol";
-
 import {TesterBaseBalV3} from "./TesterBaseBalV3.sol";
 import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV3.sol";
 import {IGyro2CLPPool} from "balancer-v3-interfaces/pool-gyro/IGyro2CLPPool.sol";
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
-import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
-
-import "balancer-v3-interfaces/vault/VaultTypes.sol";
-
-import "forge-std/console.sol";
-import "forge-std/Vm.sol";
 
 contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
     IGyro2CLPPoolFactory constant factory =

@@ -6,7 +6,6 @@ import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/Weighte
 import {TesterBase} from "./TesterBase.sol";
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
-// TODO fix file name lol. Also letter case for the V3 version.
 import {UpdatableRateProviderBalV2} from "src/UpdatablaRateProviderBalV2.sol";
 
 import {IAccessControl} from "oz/access/IAccessControl.sol";
@@ -17,9 +16,6 @@ import {IGyroConfig} from "gyro-concentrated-lps-balv2/IGyroConfig.sol";
 
 import {ICappedLiquidity} from "./ICappedLiquidity.sol";
 import {ILocallyPausable} from "./ILocallyPausable.sol";
-
-import "forge-std/console.sol";
-import "forge-std/Vm.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SafeERC20} from "oz/token/ERC20/utils/SafeERC20.sol";

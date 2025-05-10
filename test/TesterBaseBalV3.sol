@@ -5,15 +5,13 @@ import {IRouter} from "balancer-v3-interfaces/vault/IRouter.sol";
 
 import {IPermit2} from "permit2/interfaces/IPermit2.sol";
 import {IAccessControl} from "oz/access/IAccessControl.sol";
+import "balancer-v3-interfaces/vault/VaultTypes.sol";
 
 import {TesterBase} from "./TesterBase.sol";
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
 
-import "balancer-v3-interfaces/vault/VaultTypes.sol";
-
-import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 
 abstract contract TesterBaseBalV3 is TesterBase {
