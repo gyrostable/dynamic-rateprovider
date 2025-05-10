@@ -88,8 +88,6 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
             address(vault), address(c2lpPool), BaseUpdatableRateProvider.PoolType.C2LP
         );
 
-        // TODO set pool creator fees to nonzero.
-
         // Make the required approvals and initialize the pool.
         for (uint256 i = 0; i < N_TOKENS; ++i) {
             tokens[i].approve(address(permit2), type(uint256).max);
@@ -169,6 +167,7 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         vm.assertApproxEqAbs(updatableRateProvider.getRate(), expectedNewValue, 100);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
+        // NB I know that this emits exactly one event.
         (uint256 newValue) = abi.decode(logs[0].data, (uint256));
         vm.assertApproxEqAbs(newValue, expectedNewValue, 100);
     }
