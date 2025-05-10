@@ -6,7 +6,7 @@ import {IRouter} from "balancer-v3-interfaces/vault/IRouter.sol";
 import {IPermit2} from "permit2/interfaces/IPermit2.sol";
 import {IAccessControl} from "oz/access/IAccessControl.sol";
 
-import {TesterBase} from "./TesterBase.sol";
+import {TesterBaseBalV3} from "./TesterBaseBalV3.sol";
 import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV3.sol";
 import {IGyro2CLPPool} from "balancer-v3-interfaces/pool-gyro/IGyro2CLPPool.sol";
 
@@ -18,66 +18,32 @@ import "balancer-v3-interfaces/vault/VaultTypes.sol";
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 
-contract UpdatableRateProviderBalV3Test is TesterBase {
-    UpdatableRateProviderBalV3 updatableRateProvider;
-
-    // See https://github.com/balancer/balancer-deployments/tree/master/v3/tasks/00000000-permit2
-    IPermit2 permit2 = IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-
-    // See
-    // https://docs.balancer.fi/developer-reference/contracts/deployment-addresses/base.html#pool-factories
-    IVault constant vault = IVault(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
-    IGyro2CLPPoolFactory constant c2lpFactory =
+contract UpdatableRateProviderBalV3Test is TesterBaseBalV3 {
+    IGyro2CLPPoolFactory constant factory =
         IGyro2CLPPoolFactory(0xf5CDdF6feD9C589f1Be04899F48f9738531daD59);
-    IRouter constant router = IRouter(0x3f170631ed9821Ca51A59D996aB095162438DC10);
 
     // alpha = 0.5; beta = 1.5.
-    uint256 constant c2lpAlpha = 0.5e18;
-    uint256 constant c2lpBeta = 1.5e18;
-    uint256 constant c2lpSqrtAlpha = 0.707106781186547524e18;
-    uint256 constant c2lpSqrtBeta = 1.224744871391589049e18;
-    IGyro2CLPPool c2lpPool;
-
-    function getUpdatableRateProvider() internal override view returns (BaseUpdatableRateProvider) {
-        return updatableRateProvider;
-    }
+    uint256 constant alpha = 0.5e18;
+    uint256 constant beta = 1.5e18;
+    uint256 constant sqrtAlpha = 0.707106781186547524e18;
+    uint256 constant sqrtBeta = 1.224744871391589049e18;
+    IGyro2CLPPool pool;
 
     function setUp() public override {
-        TesterBase.setUp();
-
-        updatableRateProvider =
-            new UpdatableRateProviderBalV3(address(feed), false, address(this), updater);
+        TesterBaseBalV3.setUp();
 
         // Deploy 2CLP with the updatable rate provider for token0.
-        TokenConfig[] memory tokenConfigs = new TokenConfig[](2);
-        tokenConfigs[0] = TokenConfig({
-            token: tokens[0],
-            tokenType: TokenType.WITH_RATE,
-            rateProvider: updatableRateProvider,
-            paysYieldFees: false
-        });
-        tokenConfigs[1] = TokenConfig({
-            token: tokens[1],
-            tokenType: TokenType.STANDARD,
-            rateProvider: IRateProvider(address(0)),
-            paysYieldFees: false
-        });
         // poolCreator must be address(0) b/c this is a "standard pool" (from a factory I think). O/w
         // we get error `StandardPoolWithCreator()`
-        PoolRoleAccounts memory roleAccounts = PoolRoleAccounts({
-            pauseManager: address(this),
-            swapFeeManager: address(this),
-            poolCreator: address(0)
-        });
         bytes32 salt = "foobar";
-        c2lpPool = IGyro2CLPPool(
-            c2lpFactory.create(
+        pool = IGyro2CLPPool(
+            factory.create(
                 "Test 2CLP",
                 "T2CLP",
-                tokenConfigs,
-                c2lpSqrtAlpha,
-                c2lpSqrtBeta,
-                roleAccounts,
+                mkTokenConfigs(2),
+                sqrtAlpha,
+                sqrtBeta,
+                mkRoleAccounts(),
                 // 1% swap fee to make things easy
                 0.01e18,
                 address(0),
@@ -89,23 +55,10 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
 
         // Register pool in the updatable rateprovider
         updatableRateProvider.setPool(
-            address(vault), address(c2lpPool), BaseUpdatableRateProvider.PoolType.C2LP
+            address(vault), address(pool), BaseUpdatableRateProvider.PoolType.C2LP
         );
 
-        // Make the required approvals and initialize the pool.
-        for (uint256 i = 0; i < N_TOKENS; ++i) {
-            tokens[i].approve(address(permit2), type(uint256).max);
-            permit2.approve(
-                address(tokens[i]), address(router), type(uint160).max, type(uint48).max
-            );
-        }
-        IERC20[] memory c2lpTokens = new IERC20[](2);
-        c2lpTokens[0] = tokens[0];
-        c2lpTokens[1] = tokens[1];
-        uint256[] memory amountsIn = new uint256[](2);
-        amountsIn[0] = 100e18;
-        amountsIn[1] = 100e18;
-        router.initialize(address(c2lpPool), c2lpTokens, amountsIn, 0, false, "");
+        initializePool(address(pool), 2);
 
         // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
     }
