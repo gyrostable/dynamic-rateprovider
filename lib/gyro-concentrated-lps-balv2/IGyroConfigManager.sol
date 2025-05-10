@@ -11,5 +11,11 @@ interface IGyroConfigManager {
     function setPoolConfigUint(address pool, bytes32 key, uint256 value) external;
 
     function unsetPoolConfig(address pool, bytes32 key) external;
+
+    function owner() external returns (address);
+
+    // GyroConfigManager fallback-delegates to GyroConfig. We add this function from GyroConfig b/c
+    // we need it in tests.
+    function acceptGovernance() external;
 }
 

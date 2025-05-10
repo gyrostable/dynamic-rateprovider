@@ -25,8 +25,7 @@ contract TesterBase is Test {
     ConstRateProvider feed;
 
     function setUp() public virtual {
-        // TODO needs bumping when we deployed the contracts we need.
-        vm.createSelectFork(BASE_RPC_URL, 29_914_982);
+        vm.createSelectFork(BASE_RPC_URL, 30049898);
 
         for (uint256 i = 0; i < N_TOKENS; ++i) {
             tokens[i] = new ERC20Mintable();
