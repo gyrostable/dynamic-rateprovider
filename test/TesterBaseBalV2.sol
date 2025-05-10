@@ -26,11 +26,18 @@ abstract contract TesterBaseBalV2 is TesterBase {
     UpdatableRateProviderBalV2 updatableRateProvider;
     IVault constant vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
-    IGyroConfigManager constant gyroConfigManager = IGyroConfigManager(0x688E49f075bdFAeC61AeEaa97B6E3a37097A0418);
-    IGovernanceRoleManager constant governanceRoleManager = IGovernanceRoleManager(0x063c6957945a56441032629Da523C475aAc54752);
+    IGyroConfigManager constant gyroConfigManager =
+        IGyroConfigManager(0x688E49f075bdFAeC61AeEaa97B6E3a37097A0418);
+    IGovernanceRoleManager constant governanceRoleManager =
+        IGovernanceRoleManager(0x063c6957945a56441032629Da523C475aAc54752);
     IGyroConfig constant gyroConfig = IGyroConfig(0x8A5eB9A5B726583a213c7e4de2403d2DfD42C8a6);
 
-    function getUpdatableRateProvider() internal override view returns (BaseUpdatableRateProvider) {
+    function getUpdatableRateProvider()
+        internal
+        view
+        override
+        returns (BaseUpdatableRateProvider)
+    {
         return updatableRateProvider;
     }
 
@@ -43,12 +50,19 @@ abstract contract TesterBaseBalV2 is TesterBase {
         vm.prank(gyroConfigManager.owner());
         gyroConfigManager.acceptGovernance();
 
-        updatableRateProvider =
-            new UpdatableRateProviderBalV2(address(feed), false, address(this), updater, address(gyroConfigManager), address(governanceRoleManager));
+        updatableRateProvider = new UpdatableRateProviderBalV2(
+            address(feed),
+            false,
+            address(this),
+            updater,
+            address(gyroConfigManager),
+            address(governanceRoleManager)
+        );
 
         // Send some tokens to updatableRateProvider.
-        // (they only need the tokens in the pool, the third one is unnecessary for 2CLP and ECLP, but doesn't matter)
-        for (uint256 i=0; i < N_TOKENS; ++i) {
+        // (they only need the tokens in the pool, the third one is unnecessary for 2CLP and ECLP,
+        // but doesn't matter)
+        for (uint256 i = 0; i < N_TOKENS; ++i) {
             tokens[i].transfer(address(updatableRateProvider), 2e18);
         }
 
@@ -62,24 +76,37 @@ abstract contract TesterBaseBalV2 is TesterBase {
     // Give the updatableRateProvider permission to set gyroconfig params on this specific pool.
     // (we don't condition on updating the protocol fee only, but this would also be possible.)
     function setGyroConfigPermissions(address pool) internal {
-        IGovernanceRoleManager.ParameterRequirement[] memory parameterRequirements = new IGovernanceRoleManager.ParameterRequirement[](1);
+        IGovernanceRoleManager.ParameterRequirement[] memory parameterRequirements =
+            new IGovernanceRoleManager.ParameterRequirement[](1);
         parameterRequirements[0] = IGovernanceRoleManager.ParameterRequirement({
             index: 0,
             value: bytes32(abi.encode(pool))
         });
         vm.startPrank(governanceRoleManager.owner());
-        governanceRoleManager.addPermission(address(updatableRateProvider), address(gyroConfigManager), gyroConfigManager.setPoolConfigUint.selector, parameterRequirements);
-        governanceRoleManager.addPermission(address(updatableRateProvider), address(gyroConfigManager), gyroConfigManager.unsetPoolConfig.selector, parameterRequirements);
+        governanceRoleManager.addPermission(
+            address(updatableRateProvider),
+            address(gyroConfigManager),
+            gyroConfigManager.setPoolConfigUint.selector,
+            parameterRequirements
+        );
+        governanceRoleManager.addPermission(
+            address(updatableRateProvider),
+            address(gyroConfigManager),
+            gyroConfigManager.unsetPoolConfig.selector,
+            parameterRequirements
+        );
         vm.stopPrank();
     }
 
     function initializePool(bytes32 poolId, uint256 n_tokens) internal {
         IAsset[] memory assets = new IAsset[](n_tokens);
-        for (uint256 i=0; i < n_tokens; ++i)
+        for (uint256 i = 0; i < n_tokens; ++i) {
             assets[i] = IAsset(address(tokens[i]));
+        }
         uint256[] memory maxAmountsIn = new uint256[](n_tokens);
-        for (uint256 i=0; i < n_tokens; ++i)
+        for (uint256 i = 0; i < n_tokens; ++i) {
             maxAmountsIn[i] = 100e18;
+        }
         // NB for some reason I have to pass maxAmountsIn in two distinct places.
         bytes memory userData = abi.encode(WeightedPoolUserData.JoinKind.INIT, maxAmountsIn);
         IVault.JoinPoolRequest memory joinRequest = IVault.JoinPoolRequest({
@@ -88,36 +115,31 @@ abstract contract TesterBaseBalV2 is TesterBase {
             userData: userData,
             fromInternalBalance: false
         });
-        vault.joinPool(
-            poolId,
-            address(this),
-            address(this),
-            joinRequest
-        );
+        vault.joinPool(poolId, address(this), address(this), joinRequest);
     }
 
     function mkPoolTokens(uint256 n_tokens) internal view returns (IERC20Bal[] memory poolTokens) {
         poolTokens = new IERC20Bal[](n_tokens);
-        for (uint256 i=0; i < n_tokens; ++i) {
+        for (uint256 i = 0; i < n_tokens; ++i) {
             poolTokens[i] = IERC20Bal(address(tokens[i]));
         }
     }
 
     // We are attached to token0
-    function mkRateProviders(uint256 n_tokens) internal view returns (address[] memory rateProviders) {
+    function mkRateProviders(uint256 n_tokens)
+        internal
+        view
+        returns (address[] memory rateProviders)
+    {
         rateProviders = new address[](n_tokens);
         rateProviders[0] = address(updatableRateProvider);
-        for (uint256 i=1; i < n_tokens; ++i) {
+        for (uint256 i = 1; i < n_tokens; ++i) {
             rateProviders[i] = address(0);
         }
     }
 
     function mkCapParams() internal pure returns (ICappedLiquidity.CapParams memory) {
-        return ICappedLiquidity.CapParams({
-            capEnabled: false,
-            perAddressCap: 0,
-            globalCap: 0
-        });
+        return ICappedLiquidity.CapParams({capEnabled: false, perAddressCap: 0, globalCap: 0});
     }
 
     function mkPauseParams() internal pure returns (ILocallyPausable.PauseParams memory) {
@@ -127,4 +149,3 @@ abstract contract TesterBaseBalV2 is TesterBase {
         });
     }
 }
-

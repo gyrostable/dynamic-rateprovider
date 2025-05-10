@@ -17,7 +17,12 @@ import "forge-std/Vm.sol";
 abstract contract TesterBaseBalV3 is TesterBase {
     UpdatableRateProviderBalV3 updatableRateProvider;
 
-    function getUpdatableRateProvider() internal view override returns (BaseUpdatableRateProvider) {
+    function getUpdatableRateProvider()
+        internal
+        view
+        override
+        returns (BaseUpdatableRateProvider)
+    {
         return updatableRateProvider;
     }
 
@@ -57,7 +62,11 @@ abstract contract TesterBaseBalV3 is TesterBase {
     }
 
     // Our rateprovider is the one for token0 here.
-    function mkTokenConfigs(uint256 n_tokens) internal view returns (TokenConfig[] memory tokenConfigs) {
+    function mkTokenConfigs(uint256 n_tokens)
+        internal
+        view
+        returns (TokenConfig[] memory tokenConfigs)
+    {
         tokenConfigs = new TokenConfig[](n_tokens);
         tokenConfigs[0] = TokenConfig({
             token: tokens[0],
@@ -83,4 +92,3 @@ abstract contract TesterBaseBalV3 is TesterBase {
         });
     }
 }
-

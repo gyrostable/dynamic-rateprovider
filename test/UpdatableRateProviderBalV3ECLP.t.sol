@@ -7,8 +7,10 @@ import {IGyroECLPPool} from "balancer-v3-interfaces/pool-gyro/IGyroECLPPool.sol"
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 
 contract UpdatableRateProviderBalV2TestECLP is TesterBaseBalV3 {
-    // See https://docs.balancer.fi/developer-reference/contracts/deployment-addresses/base.html#core-contracts
-    IGyroECLPPoolFactory constant factory = IGyroECLPPoolFactory(0x5F6848976C2914403B425F18B589A65772F082E3);
+    // See
+    // https://docs.balancer.fi/developer-reference/contracts/deployment-addresses/base.html#core-contracts
+    IGyroECLPPoolFactory constant factory =
+        IGyroECLPPoolFactory(0x5F6848976C2914403B425F18B589A65772F082E3);
 
     IGyroECLPPool pool;
 
@@ -23,8 +25,14 @@ contract UpdatableRateProviderBalV2TestECLP is TesterBaseBalV3 {
             lambda: 5000000000000000000
         });
         IGyroECLPPool.DerivedEclpParams memory derivedEclpParams = IGyroECLPPool.DerivedEclpParams({
-            tauAlpha: IGyroECLPPool.Vector2({x:-85749292571254418640716258658269584574, y:51449575542752651184429755194961750744}),
-            tauBeta: IGyroECLPPool.Vector2({x: 70710678118654752400000000000000000000, y: 70710678118654752400000000000000000000}),
+            tauAlpha: IGyroECLPPool.Vector2({
+                x: -85749292571254418640716258658269584574,
+                y: 51449575542752651184429755194961750744
+            }),
+            tauBeta: IGyroECLPPool.Vector2({
+                x: 70710678118654752400000000000000000000,
+                y: 70710678118654752400000000000000000000
+            }),
             u: 78229985344954585431664174165955016000,
             v: 61080126830703701722964730015379048042,
             w: 9630551287951050596866397563651144168,

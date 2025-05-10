@@ -37,7 +37,7 @@ abstract contract TesterBase is Test {
     ConstRateProvider feed;
 
     // must be overridden
-    function getUpdatableRateProvider() internal virtual view returns (BaseUpdatableRateProvider);
+    function getUpdatableRateProvider() internal view virtual returns (BaseUpdatableRateProvider);
 
     function setUp() public virtual {
         vm.createSelectFork(BASE_RPC_URL, 30049898);
@@ -115,7 +115,8 @@ abstract contract TesterBase is Test {
         // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
         uint256 expectedNewValue = 0.8e18;
 
-        // Because of the small rounding error, we don't check the value (data), but do it below, approximately.
+        // Because of the small rounding error, we don't check the value (data), but do it below,
+        // approximately.
         vm.expectEmit(true, false, false, false);
         emit BaseUpdatableRateProvider.ValueUpdated(
             expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.BELOW
@@ -134,7 +135,8 @@ abstract contract TesterBase is Test {
         // 1.6 / 1.5, plus a small rounding error
         uint256 expectedNewValue = 1.066666666666666725e18;
 
-        // Because of the small rounding error, we don't check the value (data), but do it below, approximately.
+        // Because of the small rounding error, we don't check the value (data), but do it below,
+        // approximately.
         vm.expectEmit(true, false, false, false);
         emit BaseUpdatableRateProvider.ValueUpdated(
             expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.ABOVE
@@ -151,7 +153,7 @@ abstract contract TesterBase is Test {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         // The Bal V2 version emits a bunch of events for joins/exits, setting config keys etc. We
         // find the right one by selector.
-        for (uint256 i=0; i < logs.length; ++i) {
+        for (uint256 i = 0; i < logs.length; ++i) {
             if (logs[i].topics[0] == VALUE_UPDATED_SELECTOR) {
                 (uint256 newValue) = abi.decode(logs[i].data, (uint256));
                 vm.assertApproxEqAbs(newValue, expectedNewValue, absTol);

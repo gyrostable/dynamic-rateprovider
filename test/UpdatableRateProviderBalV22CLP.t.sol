@@ -25,27 +25,27 @@ contract UpdatableRateProviderBalV2Test2CLP is TesterBaseBalV2 {
         sqrts[0] = sqrtAlpha;
         sqrts[1] = sqrtBeta;
 
-        pool = IGyro2CLPPool(factory.create(
-            "Test 2CLP",
-            "T2CLP",
-            mkPoolTokens(2),
-            sqrts,
-            mkRateProviders(2),
-            // 1% swap fee
-            0.01e18,
-            address(this),  // owner
-            address(this),  // cap manager
-            mkCapParams(),
-            address(this),  // pause manager
-            mkPauseParams()
-        ));
+        pool = IGyro2CLPPool(
+            factory.create(
+                "Test 2CLP",
+                "T2CLP",
+                mkPoolTokens(2),
+                sqrts,
+                mkRateProviders(2),
+                // 1% swap fee
+                0.01e18,
+                address(this), // owner
+                address(this), // cap manager
+                mkCapParams(),
+                address(this), // pause manager
+                mkPauseParams()
+            )
+        );
 
         setGyroConfigPermissions(address(pool));
 
         // Register pool in the updatable rateprovider
-        updatableRateProvider.setPool(
-            address(pool), BaseUpdatableRateProvider.PoolType.C2LP
-        );
+        updatableRateProvider.setPool(address(pool), BaseUpdatableRateProvider.PoolType.C2LP);
 
         initializePool(pool.getPoolId(), 2);
 

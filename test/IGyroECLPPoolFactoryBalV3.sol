@@ -19,4 +19,3 @@ interface IGyroECLPPoolFactory {
         bytes32 salt
     ) external returns (address pool);
 }
-
