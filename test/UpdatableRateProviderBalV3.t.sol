@@ -38,6 +38,10 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
     uint256 constant c2lpSqrtBeta = 1.224744871391589049e18;
     IGyro2CLPPool c2lpPool;
 
+    function getUpdatableRateProvider() internal override view returns (BaseUpdatableRateProvider) {
+        return updatableRateProvider;
+    }
+
     function setUp() public override {
         TesterBase.setUp();
 
@@ -104,71 +108,5 @@ contract UpdatableRateProviderBalV3Test is TesterBase {
         router.initialize(address(c2lpPool), c2lpTokens, amountsIn, 0, false, "");
 
         // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
-    }
-
-    function testRevertIfNotUpdater() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                address(this),
-                updatableRateProvider.UPDATER_ROLE()
-            )
-        );
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testRevertIfNotOutOfRange() public {
-        // feed value didn't change, is still at 1 = in range.
-        vm.expectRevert(bytes("Pool not out of range"));
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testRevertIfNotOutOfRange2() public {
-        // feed value did change, but is still at 1 = in range.
-        feed.setRate(1.1e18);
-        vm.expectRevert(bytes("Pool not out of range"));
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testUpdateBelow() public {
-        feed.setRate(0.4e18);
-
-        // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
-        uint256 expectedNewValue = 0.8e18 + 1;
-
-        vm.recordLogs();
-        vm.expectEmit(true, false, false, true);
-        emit BaseUpdatableRateProvider.ValueUpdated(
-            expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.BELOW
-        );
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-
-        vm.assertEq(updatableRateProvider.getRate(), expectedNewValue);
-    }
-
-    function testUpdateAbove() public {
-        feed.setRate(1.6e18);
-
-        // 1.6 / 1.5. This won't match exactly.
-        uint256 expectedNewValue = 1.066666666666666725e18;
-
-        // We don't check the new value (data) here but match approximately below.
-        vm.expectEmit(true, false, false, false);
-        emit BaseUpdatableRateProvider.ValueUpdated(
-            expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.ABOVE
-        );
-        vm.recordLogs();
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-
-        vm.assertApproxEqAbs(updatableRateProvider.getRate(), expectedNewValue, 100);
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        // NB I know that this emits exactly one event.
-        (uint256 newValue) = abi.decode(logs[0].data, (uint256));
-        vm.assertApproxEqAbs(newValue, expectedNewValue, 100);
     }
 }

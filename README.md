@@ -28,6 +28,13 @@ The code is formatted using `forge fmt`.
 
 Use `forge test`. This is a fork test and you need `BASE_RPC_URL` in `.env`.
 
+Since we're testing a lot of variants, the tests have some inheritance structure:
+- `TesterBase` is the base contract from which everyone inherits. This contains some tests already
+  that are then inherited. Every test has one simulated pool attached to itself.
+- `TesterBaseBalV2` and `TesterBaseBalV3` are the base contracts for all Balancer v2 and Balancer
+  v3 tests.
+- `test/*.t.sol` derive from these.
+
 ## Deployment & Operation
 
 ### Common for Balancer V2 and V3

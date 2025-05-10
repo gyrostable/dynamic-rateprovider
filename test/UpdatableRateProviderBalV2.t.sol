@@ -43,7 +43,9 @@ contract UpdatableRateProviderBalV2Test is TesterBase {
     IGyroConfigManager constant gyroConfigManager = IGyroConfigManager(0x688E49f075bdFAeC61AeEaa97B6E3a37097A0418);
     IGovernanceRoleManager constant governanceRoleManager = IGovernanceRoleManager(0x063c6957945a56441032629Da523C475aAc54752);
 
-    bytes32 constant VALUE_UPDATED_SELECTOR = keccak256("ValueUpdated(uint256,uint8)");
+    function getUpdatableRateProvider() internal override view returns (BaseUpdatableRateProvider) {
+        return updatableRateProvider;
+    }
 
     function setUp() public override {
         TesterBase.setUp();
@@ -150,78 +152,5 @@ contract UpdatableRateProviderBalV2Test is TesterBase {
         // Maybe this should be a separate test.
 
         // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
-    }
-
-    function testRevertIfNotUpdater() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                address(this),
-                updatableRateProvider.UPDATER_ROLE()
-            )
-        );
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testRevertIfNotOutOfRange() public {
-        // feed value didn't change, is still at 1 = in range.
-        vm.expectRevert(bytes("Pool not out of range"));
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testRevertIfNotOutOfRange2() public {
-        // feed value did change, but is still at 1 = in range.
-        feed.setRate(1.1e18);
-        vm.expectRevert(bytes("Pool not out of range"));
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-    }
-
-    function testUpdateBelow() public {
-        feed.setRate(0.4e18);
-
-        // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
-        uint256 expectedNewValue = 0.8e18 + 1;
-
-        vm.recordLogs();
-        vm.expectEmit(true, false, false, true);
-        emit BaseUpdatableRateProvider.ValueUpdated(
-            expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.BELOW
-        );
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-
-        vm.assertEq(updatableRateProvider.getRate(), expectedNewValue);
-    }
-
-    function testUpdateAbove() public {
-        feed.setRate(1.6e18);
-
-        // 1.6 / 1.5. This won't match exactly.
-        uint256 expectedNewValue = 1.066666666666666725e18;
-
-        // We don't check the new value (data) here but match approximately below.
-        vm.expectEmit(true, false, false, false);
-        emit BaseUpdatableRateProvider.ValueUpdated(
-            expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.ABOVE
-        );
-        vm.recordLogs();
-        vm.prank(updater);
-        updatableRateProvider.updateToEdge();
-
-        vm.assertApproxEqAbs(updatableRateProvider.getRate(), expectedNewValue, 100);
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        // The Bal V2 version emits a bunch of events for joins/exits, setting config keys etc. We
-        // find the right one by selector.
-        for (uint256 i=0; i < logs.length; ++i) {
-            if (logs[i].topics[0] == VALUE_UPDATED_SELECTOR) {
-                (uint256 newValue) = abi.decode(logs[i].data, (uint256));
-                vm.assertApproxEqAbs(newValue, expectedNewValue, 100);
-                return;
-            }
-        }
-        revert("Bug in this test: ValueUpdated event not found");
     }
 }
