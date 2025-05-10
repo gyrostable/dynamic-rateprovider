@@ -222,6 +222,6 @@ contract UpdatableRateProviderBalV2Test is TesterBase {
                 return;
             }
         }
-        revert("Bug in this test: ValueUpdatedEvent not found");
+        revert("Bug in this test: ValueUpdated event not found");
     }
 }
