@@ -6,7 +6,7 @@ import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/Weighte
 import {TesterBase} from "./TesterBase.sol";
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
-import {UpdatableRateProviderBalV2} from "src/UpdatablaRateProviderBalV2.sol";
+import {UpdatableRateProviderBalV2} from "src/UpdatableRateProviderBalV2.sol";
 
 import {IAccessControl} from "oz/access/IAccessControl.sol";
 
