@@ -113,26 +113,28 @@ abstract contract TesterBase is Test {
         feed.setRate(0.4e18);
 
         // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
-        uint256 expectedNewValue = 0.8e18 + 1;
+        uint256 expectedNewValue = 0.8e18;
 
-        vm.recordLogs();
-        vm.expectEmit(true, false, false, true);
+        // Because of the small rounding error, we don't check the value (data), but do it below, approximately.
+        vm.expectEmit(true, false, false, false);
         emit BaseUpdatableRateProvider.ValueUpdated(
             expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.BELOW
         );
+        vm.recordLogs();
         vm.prank(updater);
         IUpdatableRateProvider(address(getUpdatableRateProvider())).updateToEdge();
 
-        vm.assertEq(getUpdatableRateProvider().getRate(), expectedNewValue);
+        vm.assertApproxEqAbs(getUpdatableRateProvider().getRate(), expectedNewValue, 100);
+        checkValueUpdatedEventValue(expectedNewValue, 100);
     }
 
     function testUpdateAbove() public {
         feed.setRate(1.6e18);
 
-        // 1.6 / 1.5. This won't match exactly.
+        // 1.6 / 1.5, plus a small rounding error
         uint256 expectedNewValue = 1.066666666666666725e18;
 
-        // We don't check the new value (data) here but match approximately below.
+        // Because of the small rounding error, we don't check the value (data), but do it below, approximately.
         vm.expectEmit(true, false, false, false);
         emit BaseUpdatableRateProvider.ValueUpdated(
             expectedNewValue, BaseUpdatableRateProvider.OutOfRangeSide.ABOVE
@@ -142,14 +144,17 @@ abstract contract TesterBase is Test {
         IUpdatableRateProvider(address(getUpdatableRateProvider())).updateToEdge();
 
         vm.assertApproxEqAbs(getUpdatableRateProvider().getRate(), expectedNewValue, 100);
+        checkValueUpdatedEventValue(expectedNewValue, 100);
+    }
 
+    function checkValueUpdatedEventValue(uint256 expectedNewValue, uint256 absTol) internal {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         // The Bal V2 version emits a bunch of events for joins/exits, setting config keys etc. We
         // find the right one by selector.
         for (uint256 i=0; i < logs.length; ++i) {
             if (logs[i].topics[0] == VALUE_UPDATED_SELECTOR) {
                 (uint256 newValue) = abi.decode(logs[i].data, (uint256));
-                vm.assertApproxEqAbs(newValue, expectedNewValue, 100);
+                vm.assertApproxEqAbs(newValue, expectedNewValue, absTol);
                 return;
             }
         }
