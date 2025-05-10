@@ -7,6 +7,7 @@ import {IGyroECLPPoolFactory} from "./IGyroECLPPoolFactoryBalV2.sol";
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 
 contract UpdatableRateProviderBalV2TestECLP is TesterBaseBalV2 {
+    // see https://docs.balancer.fi/developer-reference/contracts/deployment-addresses/base.html#core-contracts
     IGyroECLPPoolFactory constant factory = IGyroECLPPoolFactory(0x15e86Be6084C6A5a8c17732D398dFbC2Ec574CEC);
 
     IGyroECLPPool pool;
