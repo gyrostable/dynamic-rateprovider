@@ -121,17 +121,18 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
 
         PoolMetadata memory meta = _getPoolMetadata(pool, poolType);
 
-        // Unless protocol fees are 0, we need to set them to 0 so they don't get in the way when
-        // updating our rate. We do a join+exit combo with a small amount around our updating of our
-        // rate to update the accounting for protocol fees (`lastInvariant` in the ECLP). Note that
-        // order matters here. We store the old value to restore it later. We also have to store
-        // _if_ protocol fees are set for this pool because they follow a default cascade.
+        // Unless protocol fees are known to be 0, we need to set them to 0 so they don't get in
+        // the way when updating our rate. We do a join+exit combo with a small amount around our
+        // updating of our rate to update the accounting for protocol fees (`lastInvariant` in the
+        // ECLP). Note that order matters here. We store the old value to restore it later. We also
+        // have to store _whether_ protocol fees are set for this pool because they follow a default
+        // cascade (see _getPoolProtocolFee()).
         ProtocolFeeSetting memory oldProtocolFees = _getPoolProtocolFee(address(meta.pool));
 
-        // If they are already set to explicit 0, we do not need to do anything, and we don't. This
-        // saves a bit of unnecessary interaction.
-        // TODO what if they're implicit 0? Should also be fine right??
-        // (I think I just didn't wanna model the default cascade)
+        // If they are already set to explicit 0, we do not need to change them or join/exit, and we
+        // don't. This saves a bit of unnecessary interaction.
+        // NB We could expand the condition to skip if they are implicitly 0 (due to defaulting to
+        // 0), but we avoid modeling the default cascade here to save some code instead.
         if (!(oldProtocolFees.isSet && oldProtocolFees.value == 0)) {
             _joinPoolAll(meta);
             _setPoolProtocolFee(address(meta.pool), ProtocolFeeSetting(true, 0));
@@ -316,6 +317,10 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         );
     }
 
+    // We only check if a protocol fee is configured *explicitly* for the pool. Note that the actual
+    // fee follows a default cascade (first per pool, then per pool type, then a global default),
+    // but we don't need to consider this here. Therefore, if `res.isSet == false`, this just means
+    // that the pool does not have an explicit fee configured, not that there is no protocol fee.
     function _getPoolProtocolFee(address _pool) internal returns (ProtocolFeeSetting memory res) {
         IGyroConfig gyroConfig = gyroConfigManager.config();
         bytes32 key = _getPoolKey(_pool, PROTOCOL_SWAP_FEE_PERC_KEY);
