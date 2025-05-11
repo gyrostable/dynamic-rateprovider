@@ -157,6 +157,28 @@ abstract contract TesterBaseBalV2 is TesterBase {
         });
     }
 
+    // Patch existing tests to check for protocol fees.
+
+    function testUpdateBelow() public virtual override {
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
+        // We check getActualSupply() = the supply including pending protocol fees here. If protocol
+        // fees accrued and/or were paid, this would go up b/c protocol fees are paid in LP shares.
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        TesterBase.testUpdateBelow();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
+    }
+
+    function testUpdateAbove() public virtual override {
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
+        // We check getActualSupply() = the supply including pending protocol fees here. If protocol
+        // fees accrued and/or were paid, this would go up b/c protocol fees are paid in LP shares.
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        TesterBase.testUpdateAbove();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
+    }
+
     // Additional tests with different protocol fee settings. The default is to have it not set,
     // implying 0 b/c there are no global / per-pool-type fees configured.
 
@@ -166,7 +188,7 @@ abstract contract TesterBaseBalV2 is TesterBase {
         // We check getActualSupply() = the supply including pending protocol fees here. If protocol
         // fees accrued and/or were paid, this would go up b/c protocol fees are paid in LP shares.
         uint256 actualSupplyBefore = poolBase.getActualSupply();
-        testUpdateBelow();
+        TesterBase.testUpdateBelow();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
         assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
@@ -175,7 +197,7 @@ abstract contract TesterBaseBalV2 is TesterBase {
         setPoolProtocolFee(address(poolBase), 0.5e18);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
         ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
-        testUpdateAbove();
+        TesterBase.testUpdateAbove();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
         assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
@@ -184,7 +206,7 @@ abstract contract TesterBaseBalV2 is TesterBase {
         setPoolProtocolFee(address(poolBase), 0);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
         ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
-        testUpdateBelow();
+        TesterBase.testUpdateBelow();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
         assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
@@ -193,7 +215,7 @@ abstract contract TesterBaseBalV2 is TesterBase {
         setPoolProtocolFee(address(poolBase), 0);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
         ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
-        testUpdateAbove();
+        TesterBase.testUpdateAbove();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
         assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }

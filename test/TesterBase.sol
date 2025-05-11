@@ -114,7 +114,7 @@ abstract contract TesterBase is Test {
         IUpdatableRateProvider(address(getUpdatableRateProvider())).updateToEdge();
     }
 
-    function testUpdateBelow() public {
+    function testUpdateBelow() public virtual {
         uint256 feedValue = 0.4e18;
         feed.setRate(feedValue);
 
@@ -135,7 +135,7 @@ abstract contract TesterBase is Test {
         checkValueUpdatedEventValue(expectedNewValue, 100);
     }
 
-    function testUpdateAbove() public {
+    function testUpdateAbove() public virtual {
         uint256 feedValue = 1.6e18;
         feed.setRate(feedValue);
 
