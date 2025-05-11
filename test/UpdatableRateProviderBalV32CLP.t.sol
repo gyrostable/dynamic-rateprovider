@@ -47,7 +47,5 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
         );
 
         initializePool(address(pool), 2);
-
-        // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
     }
 }

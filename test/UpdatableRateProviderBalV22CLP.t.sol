@@ -50,7 +50,5 @@ contract UpdatableRateProviderBalV2Test2CLP is TesterBaseBalV2 {
         initializePool(pool.getPoolId(), 2);
 
         poolBase = IGyroBasePool(pool);
-
-        // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
     }
 }
