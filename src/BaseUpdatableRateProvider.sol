@@ -8,8 +8,6 @@ import {IRateProvider} from "balancer-v3-interfaces/solidity-utils/helpers/IRate
 
 import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
 
-import "forge-std/console.sol";
-
 abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, IRateProvider {
     using FixedPoint for uint256;
 
@@ -106,12 +104,6 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     function _updateToEdge(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
         bool thisIsNumeraire = poolType == PoolType.C3LP ? ourTokenIx == 2 : ourTokenIx == 1;
-
-        console.log("feedValue", feedValue);
-        console.log("thisIsNumeraire", thisIsNumeraire);
-        console.log("alpha", alpha);
-        console.log("beta", beta);
-        console.log("value", value);
 
         if (!thisIsNumeraire) {
             uint256 valueBelow = feedValue.divDown(alpha);
