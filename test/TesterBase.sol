@@ -40,7 +40,7 @@ abstract contract TesterBase is Test {
     function getUpdatableRateProvider() internal view virtual returns (BaseUpdatableRateProvider);
 
     function setUp() public virtual {
-        vm.createSelectFork(BASE_RPC_URL, 30049898);
+        vm.createSelectFork(BASE_RPC_URL, 30082694);
 
         for (uint256 i = 0; i < N_TOKENS; ++i) {
             tokens[i] = new ERC20Mintable();
@@ -94,6 +94,11 @@ abstract contract TesterBase is Test {
         IUpdatableRateProvider(address(getUpdatableRateProvider())).updateToEdge();
     }
 
+    // For these tests to work, pools need to be set up such that the range:
+    // - includes [0.9, 1.1]
+    // - excludes 0.4 and 1.6
+    // The default range is [0.5, 1.5], which satisfies both of course.
+
     function testRevertIfNotOutOfRange() public {
         // feed value didn't change, is still at 1 = in range.
         vm.expectRevert(bytes("Pool not out of range"));
@@ -110,10 +115,11 @@ abstract contract TesterBase is Test {
     }
 
     function testUpdateBelow() public {
-        feed.setRate(0.4e18);
+        uint256 feedValue = 0.4e18;
+        feed.setRate(feedValue);
 
         // New value = 0.8 = 0.4 / alpha, plus a small rounding error.
-        uint256 expectedNewValue = 0.8e18;
+        uint256 expectedNewValue = getExpectedNewValueFor(feedValue);
 
         // Because of the small rounding error, we don't check the value (data), but do it below,
         // approximately.
@@ -130,10 +136,10 @@ abstract contract TesterBase is Test {
     }
 
     function testUpdateAbove() public {
-        feed.setRate(1.6e18);
+        uint256 feedValue = 1.6e18;
+        feed.setRate(feedValue);
 
-        // 1.6 / 1.5, plus a small rounding error
-        uint256 expectedNewValue = 1.066666666666666725e18;
+        uint256 expectedNewValue = getExpectedNewValueFor(feedValue);
 
         // Because of the small rounding error, we don't check the value (data), but do it below,
         // approximately.
@@ -147,6 +153,21 @@ abstract contract TesterBase is Test {
 
         vm.assertApproxEqAbs(getUpdatableRateProvider().getRate(), expectedNewValue, 100);
         checkValueUpdatedEventValue(expectedNewValue, 100);
+    }
+
+    // Map a feedValue to expected rateprovider value. The default implementation is for a price
+    // range of [0.5, 1.5] with the updatable rateprovider on the token0.
+    // This is intentionally *not* a calculation so we don't create our own bug.
+    function getExpectedNewValueFor(uint256 feedValue) internal virtual returns (uint256) {
+        if (feedValue == 0.4e18) {
+            // 0.4 / 0.5
+            return 0.8e18;
+        } else if (feedValue == 1.6e18) {
+            // 1.6 / 1.5
+            return 1.066666666666666725e18;
+        } else {
+            revert("Bug in this test: feedValue not found.");
+        }
     }
 
     function checkValueUpdatedEventValue(uint256 expectedNewValue, uint256 absTol) internal {
