@@ -220,7 +220,10 @@ abstract contract TesterBaseBalV2 is TesterBase {
         assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
 
-    function assertEq(ProtocolFeeSetting memory actual, ProtocolFeeSetting memory expected) pure internal {
+    function assertEq(ProtocolFeeSetting memory actual, ProtocolFeeSetting memory expected)
+        internal
+        pure
+    {
         vm.assertEq(actual.isSet, expected.isSet);
         vm.assertEq(actual.value, expected.value);
     }
@@ -236,7 +239,11 @@ abstract contract TesterBaseBalV2 is TesterBase {
     // fee follows a default cascade (first per pool, then per pool type, then a global default),
     // but we don't need to consider this here. Therefore, if `res.isSet == false`, this just means
     // that the pool does not have an explicit fee configured, not that there is no protocol fee.
-    function _getPoolProtocolFeeSetting(address _pool) internal view returns (ProtocolFeeSetting memory res) {
+    function _getPoolProtocolFeeSetting(address _pool)
+        internal
+        view
+        returns (ProtocolFeeSetting memory res)
+    {
         bytes32 key = _getPoolKey(_pool, PROTOCOL_SWAP_FEE_PERC_KEY);
         if (gyroConfig.hasKey(key)) {
             res.isSet = true;
@@ -252,18 +259,24 @@ abstract contract TesterBaseBalV2 is TesterBase {
         return keccak256(abi.encode(key, pool));
     }
 
-    function _setPoolProtocolFeeSetting(address _pool, ProtocolFeeSetting memory feeSetting) internal {
+    function _setPoolProtocolFeeSetting(address _pool, ProtocolFeeSetting memory feeSetting)
+        internal
+    {
         IGovernanceRoleManager.ProposalAction[] memory actions =
             new IGovernanceRoleManager.ProposalAction[](1);
         actions[0].target = address(gyroConfigManager);
         actions[0].value = 0;
         if (feeSetting.isSet) {
             actions[0].data = abi.encodeWithSelector(
-                gyroConfigManager.setPoolConfigUint.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY, feeSetting.value
+                gyroConfigManager.setPoolConfigUint.selector,
+                _pool,
+                PROTOCOL_SWAP_FEE_PERC_KEY,
+                feeSetting.value
             );
         } else {
-            actions[0].data =
-                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY);
+            actions[0].data = abi.encodeWithSelector(
+                gyroConfigManager.unsetPoolConfig.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY
+            );
         }
 
         governanceRoleManager.executeActions(actions);

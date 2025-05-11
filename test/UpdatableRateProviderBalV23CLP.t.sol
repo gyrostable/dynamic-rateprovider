@@ -21,19 +21,21 @@ contract UpdatableRateProviderBalV2Test3CLP is TesterBaseBalV2 {
         TesterBaseBalV2.setUp();
 
         pool = IGyro3CLPPool(
-            factory.create(IGyro3CLPPoolFactory.NewPoolConfigParams(
-                "Test 3CLP",
-                "T3CLP",
-                mkPoolTokens(3),
-                mkRateProviders(3),
-                0.01e18, // swap fee
-                root3Alpha,
-                address(this), // owner
-                address(this), // cap manager
-                mkCapParams(),
-                address(this), // pause manager
-                mkPauseParams()
-            ))
+            factory.create(
+                IGyro3CLPPoolFactory.NewPoolConfigParams(
+                    "Test 3CLP",
+                    "T3CLP",
+                    mkPoolTokens(3),
+                    mkRateProviders(3),
+                    0.01e18, // swap fee
+                    root3Alpha,
+                    address(this), // owner
+                    address(this), // cap manager
+                    mkCapParams(),
+                    address(this), // pause manager
+                    mkPauseParams()
+                )
+            )
         );
 
         setGyroConfigPermissions(address(pool));
@@ -43,7 +45,12 @@ contract UpdatableRateProviderBalV2Test3CLP is TesterBaseBalV2 {
     }
 
     // Override b/c of different price range
-    function getExpectedNewValueFor(uint256 feedValue) internal virtual override returns (uint256) {
+    function getExpectedNewValueFor(uint256 feedValue)
+        internal
+        virtual
+        override
+        returns (uint256)
+    {
         if (feedValue == 0.4e18) {
             // 0.4 / 0.7
             return 0.571428571428571496e18;
