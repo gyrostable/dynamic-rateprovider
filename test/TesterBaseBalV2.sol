@@ -155,7 +155,8 @@ abstract contract TesterBaseBalV2 is TesterBase {
         });
     }
 
-    // Additional tests with different protocol fee settings. The default is to have it not set.
+    // Additional tests with different protocol fee settings. The default is to have it not set,
+    // implying 0 b/c there are no global / per-pool-type fees configured.
 
     function testUpdateBelowWithProtoFees() public {
         setPoolProtocolFee(address(poolBase), 0.5e18);
