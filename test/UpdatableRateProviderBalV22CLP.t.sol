@@ -1,6 +1,6 @@
 pragma solidity ^0.8.24;
 
-import {TesterBaseBalV2} from "./TesterBaseBalV2.sol";
+import {TesterBaseBalV2, IGyroBasePool} from "./TesterBaseBalV2.sol";
 import {IGyro2CLPPool} from "gyro-concentrated-lps-balv2/IGyro2CLPPool.sol";
 import {IGyro2CLPPoolFactory} from "./IGyro2CLPPoolFactoryBalV2.sol";
 
@@ -49,8 +49,7 @@ contract UpdatableRateProviderBalV2Test2CLP is TesterBaseBalV2 {
 
         initializePool(pool.getPoolId(), 2);
 
-        // TODO set protocol fees to nonzero. Use the contract for this, o/w painful.
-        // Maybe this should be a separate test.
+        poolBase = IGyroBasePool(pool);
 
         // TODO validate price. Should be around 1, but not exactly b/c the pool is not symmetric.
     }

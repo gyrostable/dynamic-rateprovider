@@ -1,6 +1,6 @@
 pragma solidity ^0.8.24;
 
-import {TesterBaseBalV2} from "./TesterBaseBalV2.sol";
+import {TesterBaseBalV2, IGyroBasePool} from "./TesterBaseBalV2.sol";
 import {IGyro3CLPPool} from "gyro-concentrated-lps-balv2/IGyro3CLPPool.sol";
 import {IGyro3CLPPoolFactory} from "./IGyro3CLPPoolFactoryBalV2.sol";
 
@@ -39,6 +39,7 @@ contract UpdatableRateProviderBalV2Test3CLP is TesterBaseBalV2 {
         setGyroConfigPermissions(address(pool));
         updatableRateProvider.setPool(address(pool), BaseUpdatableRateProvider.PoolType.C3LP);
         initializePool(pool.getPoolId(), 3);
+        poolBase = IGyroBasePool(pool);
     }
 
     // Override b/c of different price range

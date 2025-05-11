@@ -13,6 +13,7 @@ import {IAccessControl} from "oz/access/IAccessControl.sol";
 import {IGyroConfigManager} from "gyro-concentrated-lps-balv2/IGyroConfigManager.sol";
 import {IGovernanceRoleManager} from "gyro-concentrated-lps-balv2/IGovernanceRoleManager.sol";
 import {IGyroConfig} from "gyro-concentrated-lps-balv2/IGyroConfig.sol";
+import {IGyroBasePool} from "gyro-concentrated-lps-balv2/IGyroBasePool.sol";
 
 import {ICappedLiquidity} from "./ICappedLiquidity.sol";
 import {ILocallyPausable} from "./ILocallyPausable.sol";
@@ -23,6 +24,8 @@ import {SafeERC20} from "oz/token/ERC20/utils/SafeERC20.sol";
 abstract contract TesterBaseBalV2 is TesterBase {
     using SafeERC20 for IERC20;
 
+    bytes32 internal constant PROTOCOL_SWAP_FEE_PERC_KEY = "PROTOCOL_SWAP_FEE_PERC";
+
     UpdatableRateProviderBalV2 updatableRateProvider;
     IVault constant vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
@@ -31,6 +34,9 @@ abstract contract TesterBaseBalV2 is TesterBase {
     IGovernanceRoleManager constant governanceRoleManager =
         IGovernanceRoleManager(0x063c6957945a56441032629Da523C475aAc54752);
     IGyroConfig constant gyroConfig = IGyroConfig(0x8A5eB9A5B726583a213c7e4de2403d2DfD42C8a6);
+
+    // MUST be set by derived contracts in setUp().
+    IGyroBasePool poolBase;
 
     function getUpdatableRateProvider()
         internal
@@ -147,5 +153,50 @@ abstract contract TesterBaseBalV2 is TesterBase {
             pauseWindowDuration: 365 days,
             bufferPeriodDuration: 365 days
         });
+    }
+
+    // Additional tests with different protocol fee settings. The default is to have it not set.
+
+    function testUpdateBelowWithProtoFees() public {
+        setPoolProtocolFee(address(poolBase), 0.5e18);
+        // We check getActualSupply() = the supply including pending protocol fees here. If protocol
+        // fees accrued and/or were paid, this would go up b/c protocol fees are paid in LP shares.
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        testUpdateBelow();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+    }
+
+    function testUpdateAboveWithProtoFees() public {
+        setPoolProtocolFee(address(poolBase), 0.5e18);
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        testUpdateAbove();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+    }
+
+    function testUpdateBelowExplicit0ProtoFees() public {
+        setPoolProtocolFee(address(poolBase), 0);
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        testUpdateBelow();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+    }
+
+    function testUpdateAboveExplicit0ProtoFees() public {
+        setPoolProtocolFee(address(poolBase), 0);
+        uint256 actualSupplyBefore = poolBase.getActualSupply();
+        testUpdateAbove();
+        vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+    }
+
+    function setPoolProtocolFee(address _pool, uint256 value) internal {
+        IGovernanceRoleManager.ProposalAction[] memory actions =
+            new IGovernanceRoleManager.ProposalAction[](1);
+        actions[0].target = address(gyroConfigManager);
+        actions[0].value = 0;
+        actions[0].data = abi.encodeWithSelector(
+            gyroConfigManager.setPoolConfigUint.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY, value
+            );
+        // We prank the updatableRateProvider b/c we've just set it up such that it has permissions.
+        vm.prank(address(updatableRateProvider));
+        governanceRoleManager.executeActions(actions);
     }
 }

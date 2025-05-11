@@ -1,6 +1,6 @@
 pragma solidity ^0.8.24;
 
-import {TesterBaseBalV2} from "./TesterBaseBalV2.sol";
+import {TesterBaseBalV2, IGyroBasePool} from "./TesterBaseBalV2.sol";
 import {IGyroECLPPool} from "gyro-concentrated-lps-balv2/IGyroECLPPool.sol";
 import {IGyroECLPPoolFactory} from "./IGyroECLPPoolFactoryBalV2.sol";
 
@@ -62,5 +62,6 @@ contract UpdatableRateProviderBalV2TestECLP is TesterBaseBalV2 {
         setGyroConfigPermissions(address(pool));
         updatableRateProvider.setPool(address(pool), BaseUpdatableRateProvider.PoolType.ECLP);
         initializePool(pool.getPoolId(), 2);
+        poolBase = IGyroBasePool(pool);
     }
 }
