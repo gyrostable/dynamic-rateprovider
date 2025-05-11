@@ -21,6 +21,8 @@ import {ILocallyPausable} from "./ILocallyPausable.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {SafeERC20} from "oz/token/ERC20/utils/SafeERC20.sol";
 
+import "forge-std/console.sol";
+
 abstract contract TesterBaseBalV2 is TesterBase {
     using SafeERC20 for IERC20;
 
@@ -160,44 +162,94 @@ abstract contract TesterBaseBalV2 is TesterBase {
 
     function testUpdateBelowWithProtoFees() public {
         setPoolProtocolFee(address(poolBase), 0.5e18);
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
         // We check getActualSupply() = the supply including pending protocol fees here. If protocol
         // fees accrued and/or were paid, this would go up b/c protocol fees are paid in LP shares.
         uint256 actualSupplyBefore = poolBase.getActualSupply();
         testUpdateBelow();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
 
     function testUpdateAboveWithProtoFees() public {
         setPoolProtocolFee(address(poolBase), 0.5e18);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
         testUpdateAbove();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
 
     function testUpdateBelowExplicit0ProtoFees() public {
         setPoolProtocolFee(address(poolBase), 0);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
         testUpdateBelow();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
 
     function testUpdateAboveExplicit0ProtoFees() public {
         setPoolProtocolFee(address(poolBase), 0);
         uint256 actualSupplyBefore = poolBase.getActualSupply();
+        ProtocolFeeSetting memory oldProtoFeeSetting = _getPoolProtocolFeeSetting(address(poolBase));
         testUpdateAbove();
         vm.assertApproxEqAbs(poolBase.getActualSupply(), actualSupplyBefore, 1);
+        assertEq(oldProtoFeeSetting, _getPoolProtocolFeeSetting(address(poolBase)));
     }
 
-    function setPoolProtocolFee(address _pool, uint256 value) internal {
+    function assertEq(ProtocolFeeSetting memory actual, ProtocolFeeSetting memory expected) pure internal {
+        vm.assertEq(actual.isSet, expected.isSet);
+        vm.assertEq(actual.value, expected.value);
+    }
+
+    // Copied from UpdatableRateProviderBalV2: Protocol fee tools.
+
+    struct ProtocolFeeSetting {
+        bool isSet;
+        uint256 value; // valid iff isSet.
+    }
+
+    // We only check if a protocol fee is configured *explicitly* for the pool. Note that the actual
+    // fee follows a default cascade (first per pool, then per pool type, then a global default),
+    // but we don't need to consider this here. Therefore, if `res.isSet == false`, this just means
+    // that the pool does not have an explicit fee configured, not that there is no protocol fee.
+    function _getPoolProtocolFeeSetting(address _pool) internal view returns (ProtocolFeeSetting memory res) {
+        bytes32 key = _getPoolKey(_pool, PROTOCOL_SWAP_FEE_PERC_KEY);
+        if (gyroConfig.hasKey(key)) {
+            res.isSet = true;
+            res.value = gyroConfig.getUint(key);
+        } else {
+            res.isSet = false;
+        }
+    }
+
+    // See:
+    // https://github.com/gyrostable/concentrated-lps/blob/main/libraries/GyroConfigHelpers.sol
+    function _getPoolKey(address pool, bytes32 key) internal pure returns (bytes32) {
+        return keccak256(abi.encode(key, pool));
+    }
+
+    function _setPoolProtocolFeeSetting(address _pool, ProtocolFeeSetting memory feeSetting) internal {
         IGovernanceRoleManager.ProposalAction[] memory actions =
             new IGovernanceRoleManager.ProposalAction[](1);
         actions[0].target = address(gyroConfigManager);
         actions[0].value = 0;
-        actions[0].data = abi.encodeWithSelector(
-            gyroConfigManager.setPoolConfigUint.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY, value
+        if (feeSetting.isSet) {
+            actions[0].data = abi.encodeWithSelector(
+                gyroConfigManager.setPoolConfigUint.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY, feeSetting.value
             );
+        } else {
+            actions[0].data =
+                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY);
+        }
+
+        governanceRoleManager.executeActions(actions);
+    }
+
+    function setPoolProtocolFee(address _pool, uint256 value) internal {
         // We prank the updatableRateProvider b/c we've just set it up such that it has permissions.
         vm.prank(address(updatableRateProvider));
-        governanceRoleManager.executeActions(actions);
+        _setPoolProtocolFeeSetting(_pool, ProtocolFeeSetting(true, value));
     }
 }
