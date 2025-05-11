@@ -336,17 +336,15 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     function _setPoolProtocolFee(address _pool, ProtocolFeeSetting memory feeSetting) internal {
         IGovernanceRoleManager.ProposalAction[] memory actions =
             new IGovernanceRoleManager.ProposalAction[](1);
-        bytes32 key = _getPoolKey(_pool, PROTOCOL_SWAP_FEE_PERC_KEY);
-
         actions[0].target = address(gyroConfigManager);
         actions[0].value = 0;
         if (feeSetting.isSet) {
             actions[0].data = abi.encodeWithSelector(
-                gyroConfigManager.setPoolConfigUint.selector, _pool, key, feeSetting.value
+                gyroConfigManager.setPoolConfigUint.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY, feeSetting.value
             );
         } else {
             actions[0].data =
-                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, _pool, key);
+                abi.encodeWithSelector(gyroConfigManager.unsetPoolConfig.selector, _pool, PROTOCOL_SWAP_FEE_PERC_KEY);
         }
 
         governanceRoleManager.executeActions(actions);
