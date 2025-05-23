@@ -19,5 +19,5 @@ interface IGyro2CLPPoolFactory {
         bytes32 salt
     ) external returns (address pool);
 
-    function getVault() view external returns (IVault);
+    function getVault() external view returns (IVault);
 }

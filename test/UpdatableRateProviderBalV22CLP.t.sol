@@ -55,9 +55,6 @@ contract UpdatableRateProviderBalV2Test2CLP is TesterBaseBalV2 {
     // Independent of the pool type.
     function testCannotSetPoolTwice() public {
         vm.expectRevert("Pool already set");
-        updatableRateProvider.setPool(
-            address(pool), BaseUpdatableRateProvider.PoolType.C2LP
-        );
+        updatableRateProvider.setPool(address(pool), BaseUpdatableRateProvider.PoolType.C2LP);
     }
-
 }

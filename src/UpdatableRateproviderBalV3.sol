@@ -108,14 +108,8 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
 
         IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
         uint256 poolCreatorYieldFee = protocolFeeController.getPoolCreatorYieldFeePercentage(pool);
-        require(
-            poolCreatorYieldFee == 0,
-            "Pool has creator yield fee"
-        );
+        require(poolCreatorYieldFee == 0, "Pool has creator yield fee");
         (uint256 poolProtocolYieldFee,) = protocolFeeController.getPoolProtocolYieldFeeInfo(pool);
-        require(
-            poolProtocolYieldFee == 0,
-            "Pool has protocol yield fee"
-        );
+        require(poolProtocolYieldFee == 0, "Pool has protocol yield fee");
     }
 }
