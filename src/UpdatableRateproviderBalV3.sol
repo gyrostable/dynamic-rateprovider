@@ -99,14 +99,10 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     // Ensure that there is no fee on yield. This could lead to incorrect accounting during
     // the update. Reverts otherwise.
     function _requireNoYieldFees() internal view {
-        // We first check if all tokens are configured to have no yield fees. If yes, we can safely
+        // We first check if our token is configured to have no yield fees. If yes, we can safely
         // return. If no, we need to check the protocol fee controller.
         (, TokenInfo[] memory tokenInfos,,) = vault.getPoolTokenInfo(pool);
-        bool anyTokenPaysYieldFees = false;
-        for (uint256 i=0; i < tokenInfos.length; ++i) {
-            anyTokenPaysYieldFees = anyTokenPaysYieldFees || tokenInfos[i].paysYieldFees;
-        }
-        if (!anyTokenPaysYieldFees) {
+        if (!tokenInfos[ourTokenIx].paysYieldFees) {
             return;
         }
 
@@ -114,12 +110,12 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         uint256 poolCreatorYieldFee = protocolFeeController.getPoolCreatorYieldFeePercentage(pool);
         require(
             poolCreatorYieldFee == 0,
-            "Pool has creator yield fee."
+            "Pool has creator yield fee"
         );
         (uint256 poolProtocolYieldFee,) = protocolFeeController.getPoolProtocolYieldFeeInfo(pool);
         require(
             poolProtocolYieldFee == 0,
-            "Pool has protocol yield fee."
+            "Pool has protocol yield fee"
         );
     }
 }
