@@ -44,14 +44,15 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
             )
         );
 
+        // UNUSED since the UpdatableRateProviderBalV3 also checks the token config.
         // Set the protocol fee for the new pool to 0. This is required for the update routine
         // (checks and o/w reverts). The factory sets it to 10% by default.
-        IVault vault = factory.getVault();
-        IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
+        // IVault vault = factory.getVault();
+        // IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
         // TODO WIP this is not authorized even though it seems it should, and then this test fails
         // https://docs.balancer.fi/developer-reference/authorizer/base.html
-        vm.prank(0x9ff471F9f98F42E5151C7855fD1b5aa906b1AF7e);
-        protocolFeeController.setProtocolYieldFeePercentage(address(pool), 0);
+        // vm.prank(0x35fFB749B273bEb20F40f35EdeB805012C539864);
+        // protocolFeeController.setProtocolYieldFeePercentage(address(pool), 0);
 
         // Register pool in the updatable rateprovider
         updatableRateProvider.setPool(
