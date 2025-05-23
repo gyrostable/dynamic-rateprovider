@@ -6,6 +6,9 @@ import {IGyro2CLPPool} from "balancer-v3-interfaces/pool-gyro/IGyro2CLPPool.sol"
 
 import {BaseUpdatableRateProvider} from "src/BaseUpdatableRateProvider.sol";
 
+import {UpdatableRateProviderBalV3} from "src/UpdatableRateproviderBalV3.sol";
+
+import "balancer-v3-interfaces/vault/VaultTypes.sol";
 import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
 import {IProtocolFeeController} from "balancer-v3-interfaces/vault/IProtocolFeeController.sol";
 
@@ -68,5 +71,48 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
         updatableRateProvider.setPool(
             address(vault), address(pool), BaseUpdatableRateProvider.PoolType.C2LP
         );
+    }
+
+    // Test that updateToEdge() reverts when a yield fee is configured on the pool. This
+    // is independent of the pool type. Note that (at the forked block at least) the
+    // ProtocolFeeController takes a default 10% yield fee, so if we don't disable it in the token
+    // info, there is actually a yield fee.
+    function testRevertOnYieldFees() public {
+        // We need to redeploy a new updatableRateProvider here.
+        updatableRateProvider =
+            new UpdatableRateProviderBalV3(address(feed), false, address(this), updater);
+
+        TokenConfig[] memory tokenConfigs = mkTokenConfigs(2);
+        tokenConfigs[0].paysYieldFees = true;
+
+        // We need a different salt here! O/w create2 fails (due to conflict I guess).
+        bytes32 salt = "foobar123";
+        pool = IGyro2CLPPool(
+            factory.create(
+                "Test 2CLP",
+                "T2CLP",
+                tokenConfigs,
+                sqrtAlpha,
+                sqrtBeta,
+                mkRoleAccounts(),
+                // 1% swap fee to make things easy
+                0.01e18,
+                address(0),
+                true, // enable donation (let's set to true)
+                false, // don't disable unbalanced liquidity (let's not disable)
+                salt
+            )
+        );
+
+        // Register pool in the updatable rateprovider
+        updatableRateProvider.setPool(
+            address(vault), address(pool), BaseUpdatableRateProvider.PoolType.C2LP
+        );
+
+        initializePool(address(pool), 2);
+
+        vm.prank(updater);
+        vm.expectRevert("Pool has protocol yield fee");
+        updatableRateProvider.updateToEdge();
     }
 }
