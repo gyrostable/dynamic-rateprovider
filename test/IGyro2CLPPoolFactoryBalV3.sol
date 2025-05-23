@@ -1,6 +1,7 @@
 pragma solidity ^0.8.24;
 
 import "balancer-v3-interfaces/vault/VaultTypes.sol";
+import "balancer-v3-interfaces/vault/IVault.sol";
 
 /// @notice Ad-hoc interface for the 2CLP factory in balancer v3
 interface IGyro2CLPPoolFactory {
@@ -17,4 +18,6 @@ interface IGyro2CLPPoolFactory {
         bool disableUnbalancedLiquidity,
         bytes32 salt
     ) external returns (address pool);
+
+    function getVault() view external returns (IVault);
 }
