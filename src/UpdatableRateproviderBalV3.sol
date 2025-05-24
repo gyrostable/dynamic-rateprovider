@@ -10,6 +10,7 @@ import {
     Gyro2CLPPoolImmutableData
 } from "balancer-v3-interfaces/pool-gyro/IGyro2CLPPool.sol";
 import {IVault} from "balancer-v3-interfaces/vault/IVault.sol";
+import {IProtocolFeeController} from "balancer-v3-interfaces/vault/IProtocolFeeController.sol";
 import {TokenInfo} from "balancer-v3-interfaces/vault/VaultTypes.sol";
 import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
 
@@ -17,6 +18,9 @@ import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoi
 /// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     using FixedPoint for uint256;
+
+    /// @notice The Balancer V3 vault to which we are connected. Settable once, in `setPool()`.
+    IVault public vault;
 
     /// @param _feed A RateProvider to use for updates
     /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself
@@ -50,6 +54,7 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
 
         uint8 _ourTokenIx = _calcOurTokenIx(_tokenInfo2RateProviderAddresses(tokenInfo));
         _setPool(_pool, _poolType, _ourTokenIx);
+        vault = IVault(_vault);
     }
 
     /// @notice If the pool is out of range, update this rateprovider such that the true current
@@ -58,6 +63,8 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     /// the true current price.
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
+
+        _requireNoYieldFees();
 
         if (poolType == PoolType.ECLP) {
             GyroECLPPoolImmutableData memory immutableData =
@@ -87,5 +94,22 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         for (uint256 i = 0; i < tokenInfo.length; ++i) {
             rateProviders[i] = address(tokenInfo[i].rateProvider);
         }
+    }
+
+    // Ensure that there is no fee on yield. This could lead to incorrect accounting during
+    // the update. Reverts otherwise.
+    function _requireNoYieldFees() internal view {
+        // We first check if our token is configured to have no yield fees. If yes, we can safely
+        // return. If no, we need to check the protocol fee controller.
+        (, TokenInfo[] memory tokenInfos,,) = vault.getPoolTokenInfo(pool);
+        if (!tokenInfos[ourTokenIx].paysYieldFees) {
+            return;
+        }
+
+        IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
+        uint256 poolCreatorYieldFee = protocolFeeController.getPoolCreatorYieldFeePercentage(pool);
+        require(poolCreatorYieldFee == 0, "Pool has creator yield fee");
+        (uint256 poolProtocolYieldFee,) = protocolFeeController.getPoolProtocolYieldFeeInfo(pool);
+        require(poolProtocolYieldFee == 0, "Pool has protocol yield fee");
     }
 }

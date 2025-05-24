@@ -79,6 +79,7 @@ abstract contract TesterBaseBalV3 is TesterBase {
                 token: tokens[i],
                 tokenType: TokenType.STANDARD,
                 rateProvider: IRateProvider(address(0)),
+                // NB this *must* be false for the update to go through!
                 paysYieldFees: false
             });
         }
