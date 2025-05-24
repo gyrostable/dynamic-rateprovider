@@ -7,7 +7,7 @@ The `feed` rateprovider is often a `ChainlinkRateProvider` that pulls prices fro
 
 In the V1 version of the contract (which is currently implemented here), the stored value can only be updated when the linked pool is out of range (via `updateToEdge()`), and then the rate is updated such that the pool is just at the respective edge of its price range. In this case, LPers do not incur an arbitrage loss. It is expected that these updates occur rarely.
 
-To be able to know the price range of the pool, the rateprovider must know the interface of the pool. Currently, the following pools are supported: 2CLP and ECLP on both Balancer V2 and V3 and 3CLP on Balancer V2. (The 3CLP is not yet implemented on Balancer V3)
+To be able to know the price range of the pool, the rateprovider must know the interface of the pool. Currently, the following pools are supported: 2CLP and ECLP on both Balancer V2 and V3.
 
 This repository contains a version of the updatable rateprovider for Balancer V2 and another version for Balancer V3.
 
@@ -76,13 +76,12 @@ For the Balancer V3 variant, it must be ensured that the pool does not take prot
 
 We perform some basic analysis to derive the formulas used in `BaseUpdatableRateProvider._updateToEdge()`.
 
-First consider a two-asset pool (2CLP or ECLP). The 3CLP will be a analogous (see below).
+We only support two-asset pools (2CLP or ECLP).
 
 In the following, let $r$ be the current rate returned by the feed, call the pool assets x and y (corresponding to asset indices 0 and 1), let $\delta_x$ and $\delta_y$ be the current (pre-update) rates of the pool, and let $\alpha$ and $\beta$ be the corresponding price range of the pool. The parameters $\alpha$ and $\beta$ are available as follows:
 
 - For the ECLP, the two parameters $\alpha$ and $\beta$ are part of the pool configuration.
 - For the 2CLP, $\sqrt{\alpha}$ and $\sqrt{\beta}$ are part of the pool configuration, and we compute $\alpha$ and $\beta$ from that.
-- For the 3CLP (see below), $\sqrt[3]{\alpha}$ is part of the pool configuration and the pool is always symmetric, i.e., $\beta = 1/\alpha$ and the price range is the same for each of the three asset pairs. We compute $\alpha$ and $\beta$ from this.
 
  Note that either $\delta_x$ or $\delta_y$ correspond to the current value of the `UpdatableRateProvider` (depending on whether it's associated with asset x or asset y) and the other rate may be given by another rateprovider or may just be 1.
 
@@ -146,8 +145,3 @@ $$
 
 and, again, by updating $\delta_y$ to the left-hand-side value, we make it such that the current price is exactly on the edge.
 
-#### 3CLP
-
-The 3CLP is _symmetric_, i.e., the "inner" (post rate-scaling) price range for each of the three prices always satisfies $\beta = 1/\alpha$, and $\alpha$ and $\beta$ are the same for each of the three prices. Because of this, the calculations above are still valid and it does not matter which of the three assets the `UpdatableRateProvider` is attached to. We can therefore simply re-use the above calculations.
-
-To allow some uniformity in the code, `_updateToEdge()` assumes that, in case of the 3CLP, the numéraire asset is asset z.
