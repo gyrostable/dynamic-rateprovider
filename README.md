@@ -37,6 +37,8 @@ Since we're testing a lot of variants, the tests have some inheritance structure
 
 ## Deployment & Operation
 
+Warning: you _should not_ use _two_ `UpdatableRateProvider`s in the same pool (one for each asset). This is because the update routines would not be synchronized and you might get insufficient or wrong updates. Such a setup is never required. If you have a price feed that quotes in some other unit than the second pool asset, consider an intermediary transforming RateProvider instead. This does not apply to simple automatic rateproviders like wstETH/WETH if their rate value can be expected to be sufficiently close to the market price, relative to the pool range; otherwise, use a transforming RateProvider and market price oracles.
+
 ### Common for Balancer V2 and V3
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
