@@ -5,7 +5,6 @@ import {BaseUpdatableRateProvider} from "./BaseUpdatableRateProvider.sol";
 import {IGyroBasePool} from "gyro-concentrated-lps-balv2/IGyroBasePool.sol";
 import {IGyroECLPPool} from "gyro-concentrated-lps-balv2/IGyroECLPPool.sol";
 import {IGyro2CLPPool} from "gyro-concentrated-lps-balv2/IGyro2CLPPool.sol";
-import {IGyro3CLPPool} from "gyro-concentrated-lps-balv2/IGyro3CLPPool.sol";
 
 import {IGovernanceRoleManager} from "gyro-concentrated-lps-balv2/IGovernanceRoleManager.sol";
 import {IGyroConfig} from "gyro-concentrated-lps-balv2/IGyroConfig.sol";
@@ -101,12 +100,6 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
             rateProviders = new address[](2);
             rateProviders[0] = pool_.rateProvider0();
             rateProviders[1] = pool_.rateProvider1();
-        } else if (_poolType == PoolType.C3LP) {
-            IGyro3CLPPool pool_ = IGyro3CLPPool(_pool);
-            rateProviders = new address[](3);
-            rateProviders[0] = pool_.rateProvider0();
-            rateProviders[1] = pool_.rateProvider1();
-            rateProviders[2] = pool_.rateProvider2();
         } else {
             assert(false);
         }
@@ -172,11 +165,6 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
         } else if (meta.poolType == PoolType.C2LP) {
             uint256[2] memory sqrtParams = IGyro2CLPPool(address(meta.pool)).getSqrtParameters();
             return (sqrtParams[0].mulDown(sqrtParams[0]), sqrtParams[1].mulDown(sqrtParams[1]));
-        } else if (meta.poolType == PoolType.C3LP) {
-            uint256 root3Alpha = IGyro3CLPPool(address(meta.pool)).getRoot3Alpha();
-            uint256 alpha = root3Alpha.pow(3 * uint256(LogExpMath.ONE_18));
-            // NB the 3CLP is symmetric, i.e., beta = 1 / alpha.
-            return (alpha, FixedPoint.ONE.divDown(alpha));
         } else {
             assert(false);
             return (0, 0); // unreachable, to make the compiler happy.

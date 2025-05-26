@@ -44,12 +44,6 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (_poolType == PoolType.C3LP) {
-            // There is no 3CLP for Balancer V3 yet.
-            // We revert here to prevent a potential usage error later.
-            revert("Not implemented: UpdatableRateProvider for 3CLP in Bal V3");
-        }
-
         (, TokenInfo[] memory tokenInfo,,) = IVault(_vault).getPoolTokenInfo(_pool);
 
         uint8 _ourTokenIx = _calcOurTokenIx(_tokenInfo2RateProviderAddresses(tokenInfo));
@@ -77,9 +71,6 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
                 immutableData.sqrtAlpha.mulDown(immutableData.sqrtAlpha),
                 immutableData.sqrtBeta.mulDown(immutableData.sqrtBeta)
             );
-        } else if (poolType == PoolType.C3LP) {
-            // Has been caught in `setPool()`.
-            assert(false);
         } else {
             assert(false);
         }

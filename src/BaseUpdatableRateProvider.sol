@@ -21,8 +21,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     /// @notice Type of Gyro pool.
     enum PoolType {
         ECLP,
-        C2LP,
-        C3LP
+        C2LP
     }
 
     /// @notice Connected price feed. This is a RateProvider (often a ChainlinkRateProvider or a
@@ -103,7 +102,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     // denominated in units of the numeraire token (token1 for 2 assets or token2 for 3 assets).
     function _updateToEdge(uint256 alpha, uint256 beta) internal {
         uint256 feedValue = _getFeedValue();
-        bool thisIsNumeraire = poolType == PoolType.C3LP ? ourTokenIx == 2 : ourTokenIx == 1;
+        bool thisIsNumeraire = ourTokenIx == 1;
 
         if (!thisIsNumeraire) {
             uint256 valueBelow = feedValue.divDown(alpha);
