@@ -105,14 +105,17 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
         );
 
         // Register pool in the updatable rateprovider
+        vm.expectRevert("Pool token yield fees configured on our token");
         updatableRateProvider.setPool(
             address(vault), address(pool), BaseUpdatableRateProvider.PoolType.C2LP
         );
 
-        initializePool(address(pool), 2);
+        // ^^ Revert above, so the following are not relevant. Update wouldn't go through b/c the
+        // pool is not set (see the other test)
 
-        vm.prank(updater);
-        vm.expectRevert("Pool has protocol yield fee");
-        updatableRateProvider.updateToEdge();
+        // initializePool(address(pool), 2);
+
+        // vm.prank(updater);
+        // updatableRateProvider.updateToEdge();
     }
 }
