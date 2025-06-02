@@ -47,6 +47,15 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         (, TokenInfo[] memory tokenInfo,,) = IVault(_vault).getPoolTokenInfo(_pool);
 
         uint8 _ourTokenIx = _calcOurTokenIx(_tokenInfo2RateProviderAddresses(tokenInfo));
+
+        // Ensure that there is no fee on yield. This could lead to incorrect accounting during the
+        // update. Reverts otherwise.
+        // NB tokenInfo is set upon registration of the pool and cannot be changed after, so this is
+        // safe to do only once.
+        require(
+            !tokenInfo[_ourTokenIx].paysYieldFees, "Pool token yield fees configured on our token"
+        );
+
         _setPool(_pool, _poolType, _ourTokenIx);
         vault = IVault(_vault);
     }
@@ -57,8 +66,6 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     /// the true current price.
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
-
-        _requireNoYieldFees();
 
         if (poolType == PoolType.ECLP) {
             GyroECLPPoolImmutableData memory immutableData =
@@ -85,22 +92,5 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
         for (uint256 i = 0; i < tokenInfo.length; ++i) {
             rateProviders[i] = address(tokenInfo[i].rateProvider);
         }
-    }
-
-    // Ensure that there is no fee on yield. This could lead to incorrect accounting during
-    // the update. Reverts otherwise.
-    function _requireNoYieldFees() internal view {
-        // We first check if our token is configured to have no yield fees. If yes, we can safely
-        // return. If no, we need to check the protocol fee controller.
-        (, TokenInfo[] memory tokenInfos,,) = vault.getPoolTokenInfo(pool);
-        if (!tokenInfos[ourTokenIx].paysYieldFees) {
-            return;
-        }
-
-        IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
-        uint256 poolCreatorYieldFee = protocolFeeController.getPoolCreatorYieldFeePercentage(pool);
-        require(poolCreatorYieldFee == 0, "Pool has creator yield fee");
-        (uint256 poolProtocolYieldFee,) = protocolFeeController.getPoolProtocolYieldFeeInfo(pool);
-        require(poolProtocolYieldFee == 0, "Pool has protocol yield fee");
     }
 }
