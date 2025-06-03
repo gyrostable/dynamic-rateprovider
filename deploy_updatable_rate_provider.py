@@ -30,8 +30,9 @@ def main():
     )
     parser.add_argument(
         "--updater",
+        required=True,
         type=str,
-        help="Updater. Pass 'deployer' to use the deployer itself. If not given, you need to manually configure an updater later.",
+        help="Updater. Pass 'deployer' to use the deployer itself or 'none' to not set up anything at deployment. If 'none', you need to manually configure an updater later.",
     )
     parser.add_argument(
         "--invert",
@@ -61,14 +62,16 @@ def main():
     else:
         admin = args.admin
 
-    if not args.updater:
-        updater = "0x0000000000000000000000000000000000000000"
-    elif args.updater == "deployer":
+    if args.updater == "deployer":
         updater = deployer_address
+    elif args.updater == "none":
+        updater = "0x0000000000000000000000000000000000000000"
     else:
         updater = args.updater
 
     contract_addresses = CONTRACT_ADDRESSES[args.chain]
+
+    rpc_url = os.environ[f"{args.chain.upper()}_RPC_URL"]
 
     if args.bal_version == "v2":
         cmd = [
@@ -77,6 +80,8 @@ def main():
             "script/DeployUpdatableRateProviderBalV2.sol",
             "--chain",
             args.chain,
+            "--rpc-url",
+            rpc_url,
             "-s",
             "run(address,bool,address,address,address,address)",
             args.feed,
