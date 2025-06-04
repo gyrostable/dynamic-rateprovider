@@ -68,6 +68,16 @@ Because of this, the following additional steps are needed for deployment:
 
 For the Balancer V3 variant, it must be ensured that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Nothing else needs to be done.
 
+### Deployment in Practice
+
+Use:
+
+```
+$ python deploy_updatable_rate_provider.py --help
+```
+
+This calls into a foundry script. You need `PRIVATE_KEY` (of the deployer) and `{CHAIN}_RPC_URL` in your `.env`.
+
 ## Source Tour
 
 - `BaseUpdatableRateProvider` is an abstract base class that contains most of the logic and math and state that is independent of whether it's Balancer V2 or V3.
