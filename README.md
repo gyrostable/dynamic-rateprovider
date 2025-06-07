@@ -157,3 +157,6 @@ $$
 
 and, again, by updating $\delta_y$ to the left-hand-side value, we make it such that the current price is exactly on the edge.
 
+## Licensing
+
+Superluminal Labs Ltd. is the owner of this software and any accompanying files contained herein (collectively, this “Software”). This Software is not covered by the General Public License ("GPL") and does not confer any rights to the user thereunder. None of the code incorporated into the Software was GPL-licensed, and Superluminal Labs Ltd. has received prior custom licenses for all such code, including a special hybrid license between Superluminal Labs Ltd and Balancer Labs OÜ [Special Licence](./license/GyroscopeBalancerLicense.pdf).
