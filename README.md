@@ -70,6 +70,8 @@ For the Balancer V3 variant, it must be ensured that the pool does not take prot
 
 ### Deployment in Practice
 
+**Do NOT re-use the same updatable rateprovider for different pools, even if the assets are the same. This is not going to work!**
+
 Use:
 
 ```
@@ -77,6 +79,14 @@ $ python deploy_updatable_rate_provider.py --help
 ```
 
 This calls into a foundry script. You need `PRIVATE_KEY` (of the deployer) and `{CHAIN}_RPC_URL` in your `.env`.
+
+#### Verification
+
+Forge's `--guess-constructor-args` and also etherscan's similar bytecode matching sometimes fails for some reason. Here's a template you can use to manually verify with constructor args (TODO this should be made part of the python script above: provide options `--verify` and `--only-verify`).
+
+```fish
+forge verify-contract --chain base --rpc-url (api-key rpc.base) --etherscan-api-key (api-key etherscan.base) 0x2A803cE12bE775802a7c6f50797e53E9C3Fd4025 UpdatableRateProviderBalV2 --constructor-args (cast abi-encode 'f(address,bool,address,address,address,address)' 0x15CFd6D15B72Ec3c97475e44b60eFDA22f7B627f false 0xf993e9B46782Edb083d0B1C4F4AE026F20dbeb4E 0x725e704b6933be9896c717F735E5a5edbFc7193f 0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31 0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392) --watch
+```
 
 ## Source Tour
 
