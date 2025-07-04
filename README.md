@@ -37,13 +37,13 @@ Since we're testing a lot of variants, the tests have some inheritance structure
 
 ## Deployment & Operation
 
-Warning: you _should not_ use _two_ `UpdatableRateProvider`s in the same pool (one for each asset). This is because the update routines would not be synchronized and you might get insufficient or wrong updates. Such a setup is never required. If you have a price feed that quotes in some other unit than the second pool asset, consider an intermediary transforming RateProvider instead. This does not apply to simple automatic rateproviders like wstETH/WETH if their rate value can be expected to be sufficiently close to the market price, relative to the pool range; otherwise, use a transforming RateProvider and market price oracles.
+Warning: you _should not_ use _two_ `UpdatableRateProvider`s in the same pool (one for each asset). This is because the update routines would not be synchronized and you might get insufficient or wrong updates. Such a setup is never required. If you have a price feed that quotes in some other unit than the second pool asset, consider an intermediary transforming RateProvider instead (e.g. `src/QuotientRateProvider.sol` in this repo). This does not apply to simple automatic rateproviders like wstETH/WETH if their rate value can be expected to be sufficiently close to the market price, relative to the pool range; otherwise, use a transforming RateProvider and market price oracles.
 
 ### Common for Balancer V2 and V3
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
 
-1. When deploying the `UpdatableRateProvider`, the deployer specifies the `feed` rateprovider, the admin, and (optionally) the updater; in the V2 variant, they also specify the contracts used to temporarily set the protocol fee during update.
+1. When deploying the `UpdatableRateProvider`, the deployer specifies the `feed` rateprovider, the admin, and (optionally) the updater; in the V2 variant, they also specify the contracts used to temporarily set the protocol fee during update. You can use a python script for this, see `deploy_updatable_rate_provider.py` (below).
 2. They then specify the `UpdatableRateProvider` as the rate provider of the pool and deploy the pool. The rateprovider will work in this state, but the update function is not available (it would revert).
 3. The admin then calls `UpdatableRateProvider.setPool()` to connect the rateprovider to the pool. This can only be done once. The update function is then available.
 
@@ -66,7 +66,7 @@ Because of this, the following additional steps are needed for deployment:
 
 ### Balancer V3 Variant
 
-For the Balancer V3 variant, it must be ensured that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Nothing else needs to be done.
+For the Balancer V3 variant, it must be ensured that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Specifically, yield fees need to be _disabled_ for the assets in the pool's config that is passed on pool deployment. The `UpdatableRateProviderBalV3` checks this in `setPool()`. Nothing else needs to be done.
 
 ### Deployment in Practice
 
@@ -87,6 +87,10 @@ Forge's `--guess-constructor-args` and also etherscan's similar bytecode matchin
 ```fish
 forge verify-contract --chain base --rpc-url (api-key rpc.base) --etherscan-api-key (api-key etherscan.base) 0x2A803cE12bE775802a7c6f50797e53E9C3Fd4025 UpdatableRateProviderBalV2 --constructor-args (cast abi-encode 'f(address,bool,address,address,address,address)' 0x15CFd6D15B72Ec3c97475e44b60eFDA22f7B627f false 0xf993e9B46782Edb083d0B1C4F4AE026F20dbeb4E 0x725e704b6933be9896c717F735E5a5edbFc7193f 0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31 0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392) --watch
 ```
+
+#### Setting permissions and setPool() for Bal V2
+
+See `governance-l2/justfile` for how to generate the required multisig operations to set permissions in the `GovernanceRoleManager`. This also has a command to generate both the `setPool()` call and the `addPermission()` call, since these are often done together.
 
 ## Source Tour
 
