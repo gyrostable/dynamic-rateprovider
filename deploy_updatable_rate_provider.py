@@ -5,7 +5,7 @@ import dotenv
 import subprocess
 import os
 
-from constants import CONTRACT_ADDRESSES
+from constants import CONTRACT_ADDRESSES, DEFAULT_ADMINS
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
         "--admin",
         required=True,
         type=str,
-        help="Admin. Pass 'deployer' to use the deployer itself. Pass 'none' to disable admin.",
+        help="Admin. Pass 'deployer' to use the deployer itself or 'default' to use the default admin for that chain (see constants.py). Pass 'none' to disable admin.",
     )
     parser.add_argument(
         "--updater",
@@ -57,6 +57,8 @@ def main():
     # Set admin
     if args.admin == "deployer":
         admin = deployer_address
+    elif args.admin == "default":
+        admin = DEFAULT_ADMINS[args.chain]
     elif args.admin == "none":
         admin = "0x0000000000000000000000000000000000000000"
     else:
