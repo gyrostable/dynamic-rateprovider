@@ -26,7 +26,7 @@ The code is formatted using `forge fmt`.
 
 ## Testing
 
-Use `forge test`. This is a fork test and you need `BASE_RPC_URL` in `.env`. It's fine to use the public one: https://mainnet.base.org
+Use `forge test`. This is a fork test and you need `BASE_RPC_URL` and `MAINNET_RPC_URL` in `.env`.
 
 Since we're testing a lot of variants, the tests have some inheritance structure:
 - `TesterBase` is the base contract from which everyone inherits. This contains some tests already

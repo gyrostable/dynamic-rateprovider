@@ -22,11 +22,16 @@ import {WeightedPoolUserData} from "balancer-v2-interfaces/pool-weighted/Weighte
 import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
 import {LogExpMath} from "balancer-v3/pkg/solidity-utils/contracts/math/LogExpMath.sol";
 
+// The third incarnation of IERC20!
+import {SafeERC20, IERC20 as IERC20OZ} from "oz/token/ERC20/utils/SafeERC20.sol";
+
 /// @notice Balancer V2 variant of the updatable rateprovider for volatile asset pairs in Gyroscope
 /// ECLPs. Like a `ConstantRateProvider` but can be updated when the pool goes out of range.
 contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     using FixedPoint for uint256;
     using LogExpMath for uint256;
+
+    using SafeERC20 for IERC20OZ;
 
     /// @notice Connected `GyroConfigManager` used to set the protocol fee to 0 during update.
     IGyroConfigManager public immutable gyroConfigManager;
@@ -254,9 +259,9 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     function _makeApprovals(PoolMetadata memory meta) internal {
         // We just make one blanket approval per token.
         for (uint256 i = 0; i < meta.tokens.length; ++i) {
-            IERC20Bal token = meta.tokens[i];
+            IERC20OZ token = IERC20OZ(address(meta.tokens[i]));
             if (token.allowance(address(this), address(meta.vault)) == 0) {
-                token.approve(address(meta.vault), type(uint256).max);
+                token.forceApprove(address(meta.vault), type(uint256).max);
             }
         }
     }
