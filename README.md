@@ -70,6 +70,12 @@ For the Balancer V3 variant, it must be ensured that the pool does not take prot
 
 ### Deployment in Practice
 
+#### Deploy or find price feed
+The price feed comntract is used to effectively set the rate on the pool. The price feed contract exposes a `getRate()` function which returns the current USD price of the asset. 
+As a best practice, use chainlink oracle price rate provider.
+
+#### Deploy the rateprovider
+
 **Do NOT re-use the same updatable rateprovider for different pools, even if the assets are the same. This is not going to work!**
 
 Use:
@@ -80,6 +86,18 @@ $ python deploy_updatable_rate_provider.py --help
 
 This calls into a foundry script. You need `PRIVATE_KEY` (of the deployer) and `{CHAIN}_RPC_URL` in your `.env`.
 
+Usually, the deployment script is called with the following params and arguments:
+- chain: The chain you need to deploy it on
+- admin: The address that can call `setPool()` on the rateprovider. Needed for the permission step below.
+- updater: The address that can call `updateToEdge()` to effectively change the rate of the rateprovider.
+- v2 or v3: Depending on Balancer vault version the pool belongs to.
+- pricefeed: This is essentially a contract that returns `getRate()` as the current USD price of the asset.
+
+Example call for a v2 pool:
+```
+$ python deploy_updatable_rate_provider.py --chain sonic --admin 0xb5e6b895734409Df411a052195eb4EE7e40d8696 --updater 0xb5e6b895734409Df411a052195eb4EE7e40d8696 --broadcast v2 0xD5510EF8c67A4f37909C43237eA075748d36073C
+```
+
 #### Verification
 
 Forge's `--guess-constructor-args` and also etherscan's similar bytecode matching sometimes fails for some reason. Here's a template you can use to manually verify with constructor args (TODO this should be made part of the python script above: provide options `--verify` and `--only-verify`).
@@ -88,9 +106,29 @@ Forge's `--guess-constructor-args` and also etherscan's similar bytecode matchin
 forge verify-contract --chain base --rpc-url (api-key rpc.base) --etherscan-api-key (api-key etherscan.base) 0x2A803cE12bE775802a7c6f50797e53E9C3Fd4025 UpdatableRateProviderBalV2 --constructor-args (cast abi-encode 'f(address,bool,address,address,address,address)' 0x15CFd6D15B72Ec3c97475e44b60eFDA22f7B627f false 0xf993e9B46782Edb083d0B1C4F4AE026F20dbeb4E 0x725e704b6933be9896c717F735E5a5edbFc7193f 0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31 0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392) --watch
 ```
 
+
+#### Deploy the pool
+Deploy the pool as usual, using the above deployed updatable rate provider as the provider.
+
+
+
 #### Setting permissions and setPool() for Bal V2
 
-See `governance-l2/justfile` for how to generate the required multisig operations to set permissions in the `GovernanceRoleManager`. This also has a command to generate both the `setPool()` call and the `addPermission()` call, since these are often done together.
+See `governance-l2/justfile` for more detailed how to generate the required multisig operations to set permissions in the `GovernanceRoleManager`. This also has a command to generate both the `setPool()` call and the `addPermission()` call, since these are often done together.
+
+First, call `setPool()` with the admin of the rate provider. Set pool address to the pool the rateprovider belongs to and type to 0 for ECLP and to 1 for 2clp. This is needed so the rate provider can update the protocol fees for the correct pool while updating the rate.
+
+Second, give the rate provider permission to set the protocol fees for the pool via `GovernanceRoleManager` and also to unset them. Two calls are therefore needed. Call `addPermission()` with the following arguments:
+- User: The address of the updatable rate provider. This contract will need permission to update the fees.
+- Target: The address of the `GyroConfigManager`. This is where the updatable rate provider calls to update the fees.
+- Selector: `0x60b2cf71` for setting fees and `0xec1bf875` for unsetting fees. 
+- params: Tuple consisting of pool address and Bytes32-encoded form of "PROTOCOL_SWAP_FEE_PERC". Example params pool 0x3f16fce312ed8c17db8ae03c51698264764c77af
+
+`[[0,"0x0000000000000000000000003f16fce312ed8c17db8ae03c51698264764c77af"],[1,"0x50524f544f434f4c5f535741505f4645455f5045524300000000000000000000"]]
+`
+
+#### Fund the rate provider
+The rate provider needs to update the invariant before setting the protocol fees. In order to do this, the rate proivder will add and remove liquidity to the pool. To be able to do this, the rate provider needs some funds of each of the pool token. $1 worth is plenty.
 
 ## Source Tour
 
