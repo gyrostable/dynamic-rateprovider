@@ -88,6 +88,12 @@ Forge's `--guess-constructor-args` and also etherscan's similar bytecode matchin
 forge verify-contract --chain base --rpc-url (api-key rpc.base) --etherscan-api-key (api-key etherscan.base) 0x2A803cE12bE775802a7c6f50797e53E9C3Fd4025 UpdatableRateProviderBalV2 --constructor-args (cast abi-encode 'f(address,bool,address,address,address,address)' 0x15CFd6D15B72Ec3c97475e44b60eFDA22f7B627f false 0xf993e9B46782Edb083d0B1C4F4AE026F20dbeb4E 0x725e704b6933be9896c717F735E5a5edbFc7193f 0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31 0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392) --watch
 ```
 
+Command for sei (replace your rpc url and the contract address, and _maybe_ the server name depending on which one is working):
+
+```fish
+forge verify-contract 0x27cE6A70B572302CD5466591313a0029b38d7bb0 UpdatableRateProviderBalV2 --verifier blockscout --verifier-url https://seitrace.com/pacific-1/api --etherscan-api-key random --rpc-url (api-key rpc.sei) --guess-constructor-args  --watch
+```
+
 #### Setting permissions and setPool() for Bal V2
 
 See `governance-l2/justfile` for how to generate the required multisig operations to set permissions in the `GovernanceRoleManager`. This also has a command to generate both the `setPool()` call and the `addPermission()` call, since these are often done together.
