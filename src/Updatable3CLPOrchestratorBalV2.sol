@@ -33,6 +33,8 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
     /// @notice Address of the connected pool. Settable once by the owner.
     address public pool;
 
+    // TODO documentation
+
     address[3] public feeds;
     SettableRateProvider[3] public childRateProviders;
     uint256 public ixNumeraire;
@@ -101,7 +103,6 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
 
         // For the protocol fee update procedure, see UpdatableRateProviderBalV2.
 
-        // TODO review and then make this
         PH.PoolMetadata memory meta = PH.getPoolMetadata(pool);
 
         PH.ProtocolFeeSetting memory oldProtocolFees = PH.getPoolProtocolFeeSetting(gyroConfigManager, address(meta.pool));
@@ -128,14 +129,17 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
     // See the writeup for the algorithm and why it makes sense.
     function _updateToEdge(uint256 alpha) internal {
         uint256[3] memory feedValues = _getFeedValues();
+        uint256[3] memory childValues = _getChildValues();
 
         (uint256 ixX, uint256 ixY) = _calcNonNumeraireIndices(ixNumeraire);
-        uint256 pXZ = feedValues[ixX].divDown(feedValues[ixNumeraire]);
-        uint256 pYZ = feedValues[ixY].divDown(feedValues[ixNumeraire]);
 
-        (uint256 PXZ, uint256 PYZ) = BalancerLPSharePricing.relativeEquilibriumPrices3CLP(alpha, pXZ, pYZ);
+        // NB the child value for ixNumeraire = delta_z is implicitly always equal to 1.
+        uint256 pXZdelta = feedValues[ixX].divDown(feedValues[ixNumeraire]).divDown(childValues[ixX]);
+        uint256 pYZdelta = feedValues[ixY].divDown(feedValues[ixNumeraire]).divDown(childValues[ixY]);
 
-        if (PXZ == pXZ && PYZ == pYZ) {
+        (uint256 PXZdelta, uint256 PYZdelta) = BalancerLPSharePricing.relativeEquilibriumPrices3CLP(alpha, pXZdelta, pYZdelta);
+
+        if (PXZdelta == pXZdelta && PYZdelta == pYZdelta) {
             // This is a correct condition for the pool actually being in range.
             // Note that the equilibrium computation algorithm returns (pXZ, pYZ) unchanged in its
             // "else" case, so we can actually test for equality to check that the algorithm didn't
@@ -143,8 +147,8 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
             revert("Pool not out of range");
         }
 
-        _scaleChildRateProvider(ixX, pXZ.divDown(PXZ));
-        _scaleChildRateProvider(ixY, pYZ.divDown(PYZ));
+        childRateProviders[ixX].setRate(childValues[ixX].mulDown(pXZdelta).divDown(PXZdelta));
+        childRateProviders[ixY].setRate(childValues[ixY].mulDown(pYZdelta).divDown(PYZdelta));
 
         // TODO we should emit some kind of event
     }
@@ -155,15 +159,15 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
         }
     }
 
+    // TODO unify code (but need a unified interface too b/c solidity sucks)
+    function _getChildValues() view internal returns (uint256[3] memory childValues) {
+        for (uint256 i = 0; i < 3; ++i) {
+            childValues[i] = _getRateProviderRate(childRateProviders[i]);
+        }
+    }
+
     // Indices for assets "x" and "y" if we label the numeraire "z".
     function _calcNonNumeraireIndices(uint256 _ixNumeraire) pure internal returns (uint256, uint256) {
         return ((_ixNumeraire + 1) % 3, (_ixNumeraire + 2) % 3);
-    }
-
-    function _scaleChildRateProvider(uint256 ix, uint256 factor) internal {
-        SettableRateProvider srp = childRateProviders[ix];
-        assert(address(srp) != ZERO_ADDRESS);
-        // SOMEDAY add a .mulRate() method to SettableRateProvider.
-        srp.setRate(srp.getRate().mulDown(factor));
     }
 }
