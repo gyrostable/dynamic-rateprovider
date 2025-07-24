@@ -18,7 +18,7 @@
 
 pragma solidity ^0.8.0;
 
-import "balancer-v2-interfaces/pool-utils/IRateProvider.sol";
+import {IRateProvider} from "balancer-v3-interfaces/solidity-utils/helpers/IRateProvider.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConstRateProvider is IRateProvider, Ownable {
