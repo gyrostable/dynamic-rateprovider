@@ -64,6 +64,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
 
     IGyro3CLPPool pool;
 
+    // Make this very small so that rebalancing works well enough. Lol.
+    uint256 constant internal swap_fee_percentage = 1e12;
+
     function setUp() public virtual {
         vm.createSelectFork(BASE_RPC_URL, 33291652);
 
@@ -121,7 +124,7 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
                     "T3CLP",
                     poolTokens,
                     poolRateProviders,
-                    0.01e18, // swap fee
+                    swap_fee_percentage,
                     root3Alpha,
                     address(this), // owner
                     address(this), // cap manager
@@ -187,15 +190,20 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         vm.assertEq(address(orchestrator.childRateProviders(2)), address(0));
     }
 
+    function testPreUpdatePrices() view public {
+        (uint256 PXZ, uint256 PYZ) = pool.getPrices();
+        vm.assertEqDecimal(PXZ, 1e18, 18);
+        vm.assertEqDecimal(PYZ, 1e18, 18);
+    }
+
     function testUpdateAbove1() public {
         uint256 feedValue = 1.6e18;
         feeds[0].setRate(feedValue);
 
-        // TODO these should NOT be 0!
-        // WAITING to merge a fix into 3CLP (and upgrade factory).
-        // Then re-enable and check and then delete.
-        // (uint256 PXZ, uint256 PYZ) = pool.getPrices();
-        // console.log(PXZ, PYZ);
+        // This was computed separately and makes the pool arbitrage-free (but not efficient)
+        // Sad thing: I haven't simulated fees so I don't know the right values all that precisely.
+        _performTrade([int256(-99.9999999999999005e18), 54.6391184140321116e18, 54.6391184140321116e18]);
+        _assertArbFree();
 
         vm.prank(updater);
         orchestrator.updateToEdge();
@@ -211,11 +219,8 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         feeds[0].setRate(1.6e18);
         feeds[1].setRate(1.9e18);
 
-        // TODO these should NOT be 0!
-        // WAITING to merge a fix into 3CLP (and upgrade factory).
-        // Then re-enable and check and then delete.
-        // (uint256 PXZ, uint256 PYZ) = pool.getPrices();
-        // console.log(PXZ, PYZ);
+        _performTrade([int256(-100e18), -100e18, 239.4682168647321987e18]);
+        _assertArbFree();
 
         vm.prank(updater);
         orchestrator.updateToEdge();
@@ -230,6 +235,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         feeds[0].setRate(0.88e18);
         feeds[1].setRate(1.65e18);
 
+        _performTrade([int256(117.1267966090805430e18), -99.9999999999999005e18, -3.9795197061340701e18]);
+        _assertArbFree();
+
         vm.prank(updater);
         orchestrator.updateToEdge();
 
@@ -242,6 +250,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
     function testUpdateBelow1() public {
         feeds[0].setRate(0.16e18);
         feeds[1].setRate(1.65e18);
+
+        _performTrade([int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18]);
+        _assertArbFree();
 
         vm.prank(updater);
         orchestrator.updateToEdge();
@@ -256,6 +267,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         feeds[0].setRate(0.16e18);
         feeds[1].setRate(0.33e18);
 
+        _performTrade([int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18]);
+        _assertArbFree();
+
         vm.prank(updater);
         orchestrator.updateToEdge();
 
@@ -269,6 +283,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         feeds[0].setRate(0.33e18);
         feeds[1].setRate(0.40e18);
 
+        _performTrade([int256(150.2247077808560505e18), -32.1808046338926914e18, -100.0000000000000000e18]);
+        _assertArbFree();
+
         vm.prank(updater);
         orchestrator.updateToEdge();
 
@@ -278,24 +295,136 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 0.4342481187e18, 1e8, 18);
     }
 
-    // Assert that the pool is (1) arbitrage-free and (2) in range after its update.
+    // deltas: if negative, this is bought from the pool; if positive, sold to the pool.
+    // We support many-to-many swaps here.
+    function _performTrade(int256[3] memory deltas) internal {
+        // Figure out how many assets we're trading against each other and in which direction.
+        
+        // No dynamic resizing in memory!
+        uint8[3] memory ixsIn;
+        uint8[3] memory ixsOut;
+        uint8 nIxsIn;
+        uint8 nIxsOut;
+        for (uint8 i = 0; i < 3; ++i) {
+            if (deltas[i] > 0) {
+                ixsIn[nIxsIn] = i;
+                ++nIxsIn;
+            } else if (deltas[i] < 0) {
+                ixsOut[nIxsOut] = i;
+                ++nIxsOut;
+            }
+        }
+
+        if (nIxsIn == 0 && nIxsOut == 0) {
+            return;
+        }
+        assert(nIxsIn > 0 && nIxsOut > 0);
+
+        // Now do it.
+        // We exploit that we have at most 3 trading assets, so one of them always must be absorbing all the volume in one of the two directions. Nice, lol.
+
+        if (nIxsOut == 1) {
+            uint8 ixOut = ixsOut[0];
+            for (uint8 ii = 0; ii < nIxsIn; ++ii) {
+                uint8 ixIn = ixsIn[ii];
+                // uint256 amount = uint256(deltas[ixIn]).divDown(1e18 - swap_fee_percentage);
+                uint256 amount = uint256(deltas[ixIn]);
+                console.log("swap GIVEN_IN", amount);
+                console.log("ixIn", ixIn);
+                console.log("ixOut", ixOut);
+                _performSingleSwap(ixIn, ixOut, amount, IVault.SwapKind.GIVEN_IN);
+            }
+        } else if (nIxsIn == 1) {
+            uint8 ixIn = ixsIn[0];
+            for (uint8 ii = 0; ii < nIxsOut; ++ii) {
+                uint8 ixOut = ixsOut[ii];
+                console.log("swap GIVEN_OUT", -deltas[ixOut]);
+                console.log("ixIn", ixIn);
+                console.log("ixOut", ixOut);
+                _performSingleSwap(ixIn, ixOut, uint256(-deltas[ixOut]), IVault.SwapKind.GIVEN_OUT);
+            }
+        } else {
+            assert(false);  // accounting broken
+        }
+    }
+
+    function _performSingleSwap(uint8 tokenInIx, uint8 tokenOutIx, uint256 amount, IVault.SwapKind kind) internal {
+        IVault.SingleSwap memory singleSwap = IVault.SingleSwap({
+            poolId: pool.getPoolId(),
+            kind: kind,
+            assetIn: IAsset(address(tokens[tokenInIx])),
+            assetOut: IAsset(address(tokens[tokenOutIx])),
+            amount: amount,
+            userData: bytes("")
+        });
+        IVault.FundManagement memory funds = IVault.FundManagement({
+            sender: address(this),
+            fromInternalBalance: false,
+            recipient: payable(address(this)),
+            toInternalBalance: false
+        });
+        uint256 limit = kind == IVault.SwapKind.GIVEN_IN ? 0 : type(uint256).max;
+        vault.swap(
+            singleSwap,
+            funds,
+            limit,
+            type(uint256).max
+        );
+    }
+
     function _assertArbFreeAndEfficient() view internal {
+        _assertArbFreeAndEfficient(true);
+    }
+
+    function _assertArbFree() view internal {
+        _assertArbFreeAndEfficient(false);
+    }
+
+    // Assert that the pool is (1) arbitrage-free and (2) in range after its update.
+    function _assertArbFreeAndEfficient(bool checkEfficient) view internal {
         uint256 pXZdelta = feeds[0].getRate().divDown(_getRateProviderRate(feeds[2])).divDown(orchestrator.childRateProviders(0).getRate());
         uint256 pYZdelta = feeds[1].getRate().divDown(_getRateProviderRate(feeds[2])).divDown(orchestrator.childRateProviders(1).getRate());
 
         // Check against theory equilibrium. This checks that the pool is in range (i.e., efficiency).
-        // NB the equilibrium computation may still yield "out of range" by a very slight margin b/c of rounding errors (when computing products / quotients to scale by, for example, or alpha vs root3Alpha^3). That is fine; what matters is that prices are very closely aligned so there's no realistic arbitrage opportunity.
+        // NB the equilibrium computation may still yield "out of range" by a very slight margin
+        // b/c of rounding errors (when computing products / quotients to scale by, for example,
+        // or alpha vs root3Alpha^3). That is fine; what matters is that prices are very closely
+        // aligned so there's no realistic arbitrage opportunity.
         (uint256 PXZdelta, uint256 PYZdelta) = BalancerLPSharePricing.relativeEquilibriumPrices3CLP(alpha, pXZdelta, pYZdelta);
-        // Comparing up to 1e-14 scaled.
-        vm.assertApproxEqAbsDecimal(pXZdelta, PXZdelta, 1e4, 18);
-        vm.assertApproxEqAbsDecimal(pYZdelta, PYZdelta, 1e4, 18);
+        if (checkEfficient) {
+            // Comparing up to 1e-14 scaled.
+            vm.assertApproxEqAbsDecimal(pXZdelta, PXZdelta, 1e4, 18);
+            vm.assertApproxEqAbsDecimal(pYZdelta, PYZdelta, 1e4, 18);
+        }
 
-        // Check against actual prices
-        // TODO DISABLED until a fix to the 3CLP (and factory) is merged.
-        // Then re-enable.
-        // (uint256 PXZ, uint256 PYZ) = pool.getPrices();
-        // vm.assertApproxEqAbsDecimal(PXZ, feeds[0].getRate().divDown(_getRateProviderRate(feeds[2])), 1e8, 18);
-        // vm.assertApproxEqAbsDecimal(PYZ, feeds[1].getRate().divDown(_getRateProviderRate(feeds[2])), 1e8, 18);
+        // Check against actual pool prices. This checks that the pool is in range (i.e.,
+        // efficiency) and also that it's arbitrage-free.
+        (uint256 PXZactual, uint256 PYZactual) = pool.getPrices();
+        console.log("PXZactual", PXZactual);
+        console.log("PYZactual", PYZactual);
+        uint256 PXZactualdelta = PXZactual.divDown(orchestrator.childRateProviders(0).getRate());
+        uint256 PYZactualdelta = PYZactual.divDown(orchestrator.childRateProviders(1).getRate());
+        if (checkEfficient) {
+            // NB 1e12 = 1e-6 is at most the minimum swap fee, so doesn't introduce an arbitrage opportunity.
+            vm.assertApproxEqAbsDecimal(PXZactualdelta, pXZdelta, 1e12, 18);
+            vm.assertApproxEqAbsDecimal(PYZactualdelta, pYZdelta, 1e12, 18);
+        }
+
+        // Also check the actual pool prices against equilibrium prices.
+        // This *only* checks for arbitrage-freeness but not efficiency.
+
+        // We give ourselves some leeway here b/c our arbitrage swap calculations and other things
+        // may be a bit error bound. These are up to 1e-6, which is smaller than the minimum swap
+        // fee, so still fine.
+        vm.assertApproxEqAbsDecimal(PXZactualdelta, PXZdelta, 1e12, 18);
+        vm.assertApproxEqAbsDecimal(PYZactualdelta, PYZdelta, 1e12, 18);
+    }
+
+    function _debugPrintBalances() view internal {
+        (, uint256[] memory amounts,) = vault.getPoolTokens(pool.getPoolId());
+        for (uint256 i=0; i < amounts.length; ++i) {
+            console.log("pool balance", i, amounts[i]);
+        }
     }
 
     function _getRateProviderRate(IRateProvider rp) view internal returns (uint256) {
@@ -304,8 +433,6 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         }
         return rp.getRate();
     }
-
-    // TODO WIP test updates. Use my julia code to compute expected results.
 
     // Give the updatableRateProvider permission to set gyroconfig params on this specific pool.
     // (we don't condition on updating the protocol fee only, but this would also be possible.)
@@ -350,6 +477,7 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
             fromInternalBalance: false
         });
         vault.joinPool(poolId, address(this), address(this), joinRequest);
+        _debugPrintBalances();
     }
 
     function mkCapParams() internal pure returns (ICappedLiquidity.CapParams memory) {
