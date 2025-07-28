@@ -30,6 +30,21 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
 
     event PoolSet(address pool);
 
+    enum OutOfRangeMarker {
+        IN_RANGE,
+        BELOW,
+        ABOVE
+    }
+
+    event ValuesUpdated(
+        uint256 value0,
+        OutOfRangeMarker indexed why0,
+        uint256 value1,
+        OutOfRangeMarker indexed why1,
+        uint256 value2,
+        OutOfRangeMarker indexed why2
+    );
+
     /// @notice Address of the connected pool. Settable once by the owner.
     address public pool;
 
@@ -107,7 +122,7 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
 
     function _getRateProviderRate(IRateProvider rp) internal view returns (uint256) {
         if (address(rp) == ZERO_ADDRESS) {
-            return 1e18;
+            return FixedPoint.ONE;
         }
         return rp.getRate();
     }
@@ -172,10 +187,24 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
             revert("Pool not out of range");
         }
 
-        childRateProviders[ixX].setRate(childValues[ixX].mulDown(pXZdelta).divDown(PXZdelta));
-        childRateProviders[ixY].setRate(childValues[ixY].mulDown(pYZdelta).divDown(PYZdelta));
+        // We store some temporary values to emit the event below.
+        uint256[3] memory newChildValues;
+        newChildValues[ixNumeraire] = FixedPoint.ONE;
+        newChildValues[ixX] = childValues[ixX].mulDown(pXZdelta).divDown(PXZdelta);
+        newChildValues[ixY] = childValues[ixY].mulDown(pYZdelta).divDown(PYZdelta);
 
-        // TODO we should emit some kind of event
+        childRateProviders[ixX].setRate(newChildValues[ixX]);
+        childRateProviders[ixY].setRate(newChildValues[ixY]);
+
+        // TODO add event emission to tests.
+        emit ValuesUpdated(
+            newChildValues[0],
+            _calcOutOfRangeMarker(childValues[0], newChildValues[0]),
+            newChildValues[1],
+            _calcOutOfRangeMarker(childValues[1], newChildValues[1]),
+            newChildValues[2],
+            _calcOutOfRangeMarker(childValues[2], newChildValues[2])
+        );
     }
 
     function _getFeedValues() internal view returns (uint256[3] memory feedValues) {
@@ -184,7 +213,6 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
         }
     }
 
-    // TODO unify code (but need a unified interface too b/c solidity sucks)
     function _getChildValues() internal view returns (uint256[3] memory childValues) {
         for (uint256 i = 0; i < 3; ++i) {
             childValues[i] = _getRateProviderRate(childRateProviders[i]);
@@ -198,5 +226,15 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
         returns (uint256, uint256)
     {
         return ((_ixNumeraire + 1) % 3, (_ixNumeraire + 2) % 3);
+    }
+
+    function _calcOutOfRangeMarker(uint256 oldValue, uint256 newValue) internal pure returns (OutOfRangeMarker) {
+        if (newValue < oldValue) {
+            return OutOfRangeMarker.BELOW;
+        } else if (newValue > oldValue) {
+            return OutOfRangeMarker.ABOVE;
+        } else {
+            return OutOfRangeMarker.IN_RANGE;
+        }
     }
 }
