@@ -65,7 +65,7 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
     IGyro3CLPPool pool;
 
     function setUp() public virtual {
-        vm.createSelectFork(BASE_RPC_URL, 33255559);
+        vm.createSelectFork(BASE_RPC_URL, 33291652);
 
         // Tokens and feed
         
