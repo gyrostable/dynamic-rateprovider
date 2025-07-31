@@ -31,6 +31,7 @@ import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoi
 import {BalancerLPSharePricing} from "gyro-concentrated-lps-balv2/BalancerLPSharePricing.sol";
 
 import "forge-std/console.sol";
+import "forge-std/Vm.sol";
 
 contract Updatable3CLPOrchestratorBalV2Test is Test {
     using FixedPoint for uint256;
@@ -66,6 +67,13 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
 
     // Make this very small so that rebalancing works well enough. Lol.
     uint256 constant internal swap_fee_percentage = 1e12;
+
+    // Some aliases b/c I cannot possibly type this out each time.
+    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_IN_RANGE = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.IN_RANGE;
+    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_BELOW = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.BELOW;
+    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_ABOVE = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.ABOVE;
+
+    bytes32 constant VALUES_UPDATED_SELECTOR = keccak256("ValuesUpdated(uint256,uint8,uint256,uint8,uint256,uint8)");
 
     function setUp() public virtual {
         vm.createSelectFork(BASE_RPC_URL, 33291652);
@@ -197,102 +205,51 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
     }
 
     function testUpdateAbove1() public {
-        uint256 feedValue = 1.6e18;
-        feeds[0].setRate(feedValue);
-
-        // This was computed separately and makes the pool arbitrage-free (but not efficient)
-        // Sad thing: I haven't simulated fees so I don't know the right values all that precisely.
-        _performTrade([int256(-99.9999999999999005e18), 54.6391184140321116e18, 54.6391184140321116e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        // NB only using 1e8 here b/c that's the precision and this check is more of a spot check anyways. The important one is `_assertInEquilibrium()`.
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 1.3386560425e18, 1e8, 18);
-        vm.assertEqDecimal(orchestrator.childRateProviders(1).getRate(), 1e18, 18);
+        _testUpdate(
+            [uint256(1.6e18), 1e18],
+            [int256(-99.9999999999999005e18), 54.6391184140321116e18, 54.6391184140321116e18],
+            1.3386560425e18, OORM_ABOVE, 1e18, OORM_IN_RANGE, 1e18, OORM_IN_RANGE
+        );
     }
 
     function testUpdateAbove2() public {
-        feeds[0].setRate(1.6e18);
-        feeds[1].setRate(1.9e18);
-
-        _performTrade([int256(-100e18), -100e18, 239.4682168647321987e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 1.12e18, 1e8, 18);
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 1.33e18, 1e8, 18);
+        _testUpdate(
+            [uint256(1.6e18), 1.9e18],
+            [int256(-100e18), -100e18, 239.4682168647321987e18],
+            1.12e18, OORM_ABOVE, 1.33e18, OORM_ABOVE, 1e18, OORM_IN_RANGE
+        );
     }
 
     function testUpdateAbove3() public {
-        feeds[0].setRate(0.88e18);
-        feeds[1].setRate(1.65e18);
-
-        _performTrade([int256(117.1267966090805430e18), -99.9999999999999005e18, -3.9795197061340701e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 1e18, 0, 18);
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 1.4716062653e18, 1e8, 18);
+        _testUpdate(
+            [uint256(0.88e18), 1.65e18],
+            [int256(117.1267966090805430e18), -99.9999999999999005e18, -3.9795197061340701e18],
+            1e18, OORM_IN_RANGE, 1.4716062653e18, OORM_ABOVE, 1e18, OORM_IN_RANGE
+        );
     }
 
     function testUpdateBelow1() public {
-        feeds[0].setRate(0.16e18);
-        feeds[1].setRate(1.65e18);
-
-        _performTrade([int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 0.2285714286e18, 1e8, 18);
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 1.6500000000e18, 1e8, 18);
+        _testUpdate(
+            [uint256(0.16e18), 1.65e18],
+            [int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18],
+            0.2285714286e18, OORM_BELOW, 1.6500000000e18, OORM_ABOVE, 1e18, OORM_IN_RANGE 
+        );
     }
 
     function testUpdateBelow2() public {
-        feeds[0].setRate(0.16e18);
-        feeds[1].setRate(0.33e18);
-
-        _performTrade([int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 0.2285714286e18, 1e8, 18);
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 0.3300000000e18, 1e8, 18);
+        _testUpdate(
+            [uint256(0.16e18), 0.33e18],
+            [int256(239.4682168647321987e18), -100.0000000000000000e18, -100.0000000000000000e18],
+            0.2285714286e18, OORM_BELOW, 0.3300000000e18, OORM_BELOW, 1e18, OORM_IN_RANGE 
+        );
     }
 
     function testUpdateBelow3() public {
-        feeds[0].setRate(0.33e18);
-        feeds[1].setRate(0.40e18);
-
-        _performTrade([int256(150.2247077808560505e18), -32.1808046338926914e18, -100.0000000000000000e18]);
-        _assertArbFree();
-
-        vm.prank(updater);
-        orchestrator.updateToEdge();
-
-        _assertArbFreeAndEfficient();
-
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), 0.4342481187e18, 1e8, 18);
-        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), 0.4342481187e18, 1e8, 18);
+        _testUpdate(
+            [uint256(0.33e18), 0.40e18],
+            [int256(150.2247077808560505e18), -32.1808046338926914e18, -100.0000000000000000e18],
+            0.4342481187e18, OORM_BELOW, 0.4342481187e18, OORM_BELOW, 1e18, OORM_IN_RANGE
+        );
     }
 
     // deltas: if negative, this is bought from the pool; if positive, sold to the pool.
@@ -418,6 +375,66 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         // fee, so still fine.
         vm.assertApproxEqAbsDecimal(PXZactualdelta, PXZdelta, 1e12, 18);
         vm.assertApproxEqAbsDecimal(PYZactualdelta, PYZdelta, 1e12, 18);
+    }
+
+    function _testUpdate(
+        uint256[2] memory feedValues,
+        int256[3] memory arbTrade,
+        uint256 expectedValue0,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker expectedWhy0,
+        uint256 expectedValue1,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker expectedWhy1,
+        uint256 expectedValue2,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker expectedWhy2
+    ) internal {
+        feeds[0].setRate(feedValues[0]);
+        feeds[1].setRate(feedValues[1]);
+
+        // This was computed separately and makes the pool arbitrage-free (but not efficient)
+        // I haven't simulated fees so I don't know the right values all that precisely.
+        _performTrade(arbTrade);
+        _assertArbFree();
+
+        vm.recordLogs();
+        
+        vm.prank(updater);
+        orchestrator.updateToEdge();
+
+        _assertArbFreeAndEfficient();
+
+        _checkValueUpdatedEvent(expectedValue0, expectedWhy0, expectedValue1, expectedWhy1, expectedValue2, expectedWhy2);
+        // NB only using 1e8 here b/c that's the precision and this check is more of a spot check anyways. The important one is `_assertInEquilibrium()`.
+        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(0).getRate(), expectedValue0, 1e8, 18);
+        vm.assertApproxEqAbsDecimal(orchestrator.childRateProviders(1).getRate(), expectedValue1, 1e8, 18);
+    }
+
+    function _checkValueUpdatedEvent(
+        uint256 value0,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker why0,
+        uint256 value1,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker why1,
+        uint256 value2,
+        Updatable3CLPOrchestratorBalV2.OutOfRangeMarker why2
+    ) internal {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics[0] == VALUES_UPDATED_SELECTOR) {
+                (uint256 actualValue0, uint256 actualValue1, uint256 actualValue2) = abi.decode(logs[i].data, (uint256, uint256, uint256));
+                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy0 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[1])));
+                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy1 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[2])));
+                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy2 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[3])));
+
+                vm.assertEq(uint8(why0), uint8(actualWhy0));
+                vm.assertApproxEqAbsDecimal(value0, actualValue0, 1e8, 18);
+                vm.assertEq(uint8(why1), uint8(actualWhy1));
+                vm.assertApproxEqAbsDecimal(value1, actualValue1, 1e8, 18);
+                vm.assertEq(uint8(why2), uint8(actualWhy2));
+                vm.assertApproxEqAbsDecimal(value2, actualValue2, 1e8, 18);
+
+                return;
+            }
+        }
+        revert("Bug in this test: ValuesUpdated event not found");
     }
 
     function _debugPrintBalances() view internal {
