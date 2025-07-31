@@ -6,6 +6,7 @@ import {ERC20Mintable} from "./ERC20Mintable.sol";
 import {ConstRateProvider} from "./ConstRateProvider.sol";
 
 import {Updatable3CLPOrchestratorBalV2} from "src/Updatable3CLPOrchestratorBalV2.sol";
+import {BaseUpdatable3CLPOrchestrator} from "src/BaseUpdatable3CLPOrchestrator.sol";
 
 import {IGyroConfigManager} from "gyro-concentrated-lps-balv2/IGyroConfigManager.sol";
 import {IGovernanceRoleManager} from "gyro-concentrated-lps-balv2/IGovernanceRoleManager.sol";
@@ -69,9 +70,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
     uint256 constant internal swap_fee_percentage = 1e12;
 
     // Some aliases b/c I cannot possibly type this out each time.
-    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_IN_RANGE = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.IN_RANGE;
-    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_BELOW = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.BELOW;
-    Updatable3CLPOrchestratorBalV2.OutOfRangeMarker constant OORM_ABOVE = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker.ABOVE;
+    BaseUpdatable3CLPOrchestrator.OutOfRangeMarker constant OORM_IN_RANGE = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker.IN_RANGE;
+    BaseUpdatable3CLPOrchestrator.OutOfRangeMarker constant OORM_BELOW = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker.BELOW;
+    BaseUpdatable3CLPOrchestrator.OutOfRangeMarker constant OORM_ABOVE = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker.ABOVE;
 
     bytes32 constant VALUES_UPDATED_SELECTOR = keccak256("ValuesUpdated(uint256,uint8,uint256,uint8,uint256,uint8)");
 
@@ -420,9 +421,9 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         for (uint256 i = 0; i < logs.length; ++i) {
             if (logs[i].topics[0] == VALUES_UPDATED_SELECTOR) {
                 (uint256 actualValue0, uint256 actualValue1, uint256 actualValue2) = abi.decode(logs[i].data, (uint256, uint256, uint256));
-                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy0 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[1])));
-                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy1 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[2])));
-                Updatable3CLPOrchestratorBalV2.OutOfRangeMarker actualWhy2 = Updatable3CLPOrchestratorBalV2.OutOfRangeMarker(uint8(uint256(logs[i].topics[3])));
+                BaseUpdatable3CLPOrchestrator.OutOfRangeMarker actualWhy0 = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker(uint8(uint256(logs[i].topics[1])));
+                BaseUpdatable3CLPOrchestrator.OutOfRangeMarker actualWhy1 = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker(uint8(uint256(logs[i].topics[2])));
+                BaseUpdatable3CLPOrchestrator.OutOfRangeMarker actualWhy2 = BaseUpdatable3CLPOrchestrator.OutOfRangeMarker(uint8(uint256(logs[i].topics[3])));
 
                 vm.assertEq(uint8(why0), uint8(actualWhy0));
                 vm.assertApproxEqAbsDecimal(value0, actualValue0, 1e8, 18);
