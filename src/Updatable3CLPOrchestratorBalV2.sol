@@ -196,7 +196,6 @@ contract Updatable3CLPOrchestratorBalV2 is AccessControlDefaultAdminRules {
         childRateProviders[ixX].setRate(newChildValues[ixX]);
         childRateProviders[ixY].setRate(newChildValues[ixY]);
 
-        // TODO add event emission to tests.
         emit ValuesUpdated(
             newChildValues[0],
             _calcOutOfRangeMarker(childValues[0], newChildValues[0]),
