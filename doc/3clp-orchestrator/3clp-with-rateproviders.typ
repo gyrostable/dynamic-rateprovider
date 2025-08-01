@@ -114,7 +114,7 @@
 
 #let title = [Updatable Rate-Scaling for the 3CLP]
 
-#let abstract = [We discuss how to make the 3CLP updatable by adjusting token rates using a special updatable rate provider. This allows the pool to adjust its price range when one or several if its prices are out of range and can be used for volatile pairs like WETH/WBTC/USDC.]
+#let abstract = [We discuss how to make the 3CLP updatable by adjusting token rates using a special updatable rate provider. This allows the pool to adjust its price range when one or several of its prices are out of range and enables it to be used for volatile pairs like WETH/WBTC/USDC.]
 
 #place(
   top + center,
@@ -153,13 +153,13 @@
 
 Assume that there are three assets with balances $t = (x, y, z)$ with rates $delta = (delta_x, delta_y, delta_z)$ attached. Fix some parameter $alpha in (0, 1)$. The rate-scaled 3CLP constructs a 3CLP curve with respect to the rate-scaled balances $t^delta := (delta_x x, delta_y y, delta_z z)$ and allows trading along this curve with rate-scaled balances. For example, when swapping x to y, a swap amount $Delta x$ would be scaled up to $Delta x^delta := delta_x dot Delta x$, then a corresponding rate-scaled swap amount $Delta y^delta$ is computed along the rate-scaled 3CLP curve, and this amount is scaled back to $Delta y := Delta y^delta \/ delta_y$.
 
-In the updatable version of this setup, one or more of the rates $delta$ are controlled by a manager contract and can be updated if the pool is out of range of the current market prices. Assume that we are given oracle prices $p = (p_x, p_y, p_z)$. The quote asset of these prices does not matter since we will be using rate-scaled prices exclusively.
+In the updatable version of this setup, one or more of the rates $delta$ are controlled by a manager contract (the _orchestrator_) and can be updated if the pool is out of range of the current market prices. Assume that we are given oracle prices $p = (p_x, p_y, p_z)$. The quote asset of these prices does not matter since we will be using relative prices exclusively.
 We will assume in the following WLOG that (1) the numeraire is asset z and the price vector is
 $
   p = (pxz = p_x / p_z, med pyz = p_y / p_z)
 $
 and we assume (2) that the updatable rate provider controls the rates $delta_x$ and $delta_y$. If this is not the case, we simply need to rotate our asset names.#footnote[
-   Note here that the 3CLP is symmetric as well, so we do not need to transform any pool parameters when we rename assets. We could also assume for this exposition WLOG that and $delta_z = 1$, i.e. asset z does not have a rate provider, but we do not here.
+   Note here that the 3CLP is symmetric as well, so we do not need to transform any pool parameters when we rename assets. We could also assume for this exposition WLOG that and $delta_z = 1$, i.e. asset z does not have a rate provider, but we do not here. Our implementation _does_ establish this, though.
 ]
 
 We can transform prices between rate-scaled and actual space. Specifically, let
@@ -186,18 +186,22 @@ For every vector of true (rate-scaled) prices, there is a unique _equilibrium po
 ]
 The pool is _out of range_ if the current (rate-scaled) prices $p^delta$ are not feasible, or equivalently $P^delta (p^delta) != p^delta$.
 
+Based on the reserve balances in the pool, the pool also exhibits an _actual_ current vector of spot prices $P^delta (t^delta)$. The pool exposes an arbitrage opportunity iff $P^delta (t^delta) != P^delta (p^delta)$. In the following, we will assume that this is not the case (i.e., $P^delta (t^delta) = P^delta (p^delta)$), following the usual argument that any such opportunity would quickly be taken by arbitrageurs.#footnote[
+  In the presence of swap fees, small price divergences (up to the fee) are not exploitable by arbitrageurs and therefore the the equality will only hold approximately. This is ignored here.
+]
+
 #figure(
   image(
     "3clp-price-space.png",
     width: 80%,
   ),
   placement: auto,
-  caption: [Space of representable pool prices in the 3CLP. This is the intersection of three sets given by the condition that all implied balances need to be non-negative. Note that the axes should be labeled $Pxz^delta$ and $Pyz^delta$ instead of $pxz$ and $pyz$, respectively, in our notation here.],
+  caption: [Space of feasible pool prices in the 3CLP. This is the intersection of three sets given by the condition that all implied balances need to be non-negative. Note that the axes should be labeled $Pxz^delta$ and $Pyz^delta$ instead of $pxz$ and $pyz$, respectively, in our notation here. The black square is $[alpha, 1\/alpha] times [alpha, 1\/alpha]$. Note that the lower corner $(alpha, alpha)$ of the square is not feasible, as are many other points in the square.],
 )<fig-representable-prices>
 
 = Rate provider update
 
-Assume now that we find ourselves in a situation where the pool is in equilibrium with the external market but out of range, i.e., $P^delta (t^delta) = P^delta (p^delta) != p^delta$. In this situation, no trading is possible at current market prices. Our goal is now to update the rates $delta_x$ and $delta_y$ to new rates $delta'_x$ and $delta'_y$ such that the following two conditions hold:
+Assume now that we find ourselves in a situation where the pool is in equilibrium with the external market but out of range, i.e., $P^delta (t^delta) = P^delta (p^delta) != p^delta$. In this situation, we have for at least one of the three asset pairs that no trading is possible in either direction at the current global market price. Our goal is now to update the rates $delta_x$ and $delta_y$ to new rates $delta'_x$ and $delta'_y$ such that the following two conditions hold:
 
 #[
 #set enum(numbering: n => strong(numbering("1.", n)))
@@ -227,7 +231,7 @@ Observe that, if $p^delta$ is already feasible (i.e., $P^delta (p^delta) = p^del
     width: 100%,
   ),
   placement: auto,
-  caption: [Some example projections of the rate-scaled price vector $p^delta$ under the original rates to the new rates vector $p^(delta')$, which coincides with price equilibrium computation.],
+  caption: [Some example projections of the rate-scaled price vector $p^delta$ under the original rates to the new rates vector $p^(delta')$, which coincides with price equilibrium computation. The set labeled "$x >= 0$" is also denoted $T_x$ below, and analogously for $y$ and $z$.],
 )<fig-p-delta-projections>
 
 The remainder of this document is to show that this update is indeed arbitrage-free and efficient. To do this, we first show that the update does not affect rate-scaled prices.
@@ -236,7 +240,7 @@ The remainder of this document is to show that this update is indeed arbitrage-f
 
 The updated rates $delta'$ need to be carefully chosen because the actual (not rate-scaled) balances of the pool do (of course) not change due to our rate provider update while the rate-scaled pool balances (which determine the prices exhibited by the "inner" pool curve) do, from $t^delta$ to $t^(delta')$. Because of this, for general $delta'$, an update could introduce an arbitrage opportunity. We need to show that this is not the case for our choice of $delta'$ and to do this, we need to consider the interaction between balances and prices in greater detail.
 
-Let $P^delta (t^delta)$ be the rate-scaled pool prices exhibited at rate-scaled balances $t^delta$. See @kmsr2022concentrated[Section~3] for the corresponding formulas and note that $t^delta$ is there is a 1:1 correspondence between $P^delta$ vectors and pairs $(t^delta, L)$, where $L$ is the invariant and $t^delta (P^delta, L)$ scales linearly in $L$.
+Let $P^delta (t^delta)$ be the rate-scaled pool prices exhibited at rate-scaled balances $t^delta$. See @kmsr2022concentrated[Section~3] for the corresponding formulas and note that there is a 1:1 correspondence between $P^delta$ vectors and pairs $(t^delta, L)$, where $L$ is the pool invariant, and $t^delta (P^delta, L)$ scales linearly in $L$.
 
 Our main lemma towards arbitrage-freeness and efficiency is to observe that the update from $delta$ to $delta'$ does not change the rate-scaled pool prices.
 
@@ -250,17 +254,27 @@ Our main lemma towards arbitrage-freeness and efficiency is to observe that the 
 ]<lem-pool-price-preservation>
 #proof[
   Denote the interior of a set $A$ as $interior(A)$ and the boundary $boundary(A)$.
-  @kmsr2023design[Appendix~A.2] represents the set of feasible pool price vectors as the intersection of three sets $T_x inter T_y inter T_z$ and we have
+  @kmsr2023design[Appendix~A.2] represent the set of feasible pool price vectors as the intersection of three sets $T_x inter T_y inter T_z$ such that we have $P^delta (p^delta) in T_x inter T_y inter T_z$ and
   $
-    (ast) quad && p^delta in.not interior(T_x) &<=> P^delta (t^delta) in boundary(T_x) <=> x = 0
+    (ast) quad && P^delta (t^delta) in boundary(T_x) <=> x = 0
   $
-  We now perform case distinction over the combinations of the statements $p^delta in interior(T_i)$ for $i in {x, y, z}$.
+  and likewise for the other assets.
 
-  - If $p^delta in T_x inter T_y inter T_z$, then $p^delta$ is a feasible pool price and by the discussion above, $delta' = delta$, so there is no change.
-  - If $p^delta in (T_x inter T_z) without T_y$, then $Pxz^delta (p^delta) = pxz^delta$ #citep[@kmsr2023design[Algorithm~1 and Theorem~1]] and therefore $delta'_x = delta_x$. Also, by (#sym.ast) we have $y=0$ so that $t^(delta') = t^delta$.
-  - If $p^delta in (T_y inter T_z) without T_x$, likewise.
-  - If $p^delta in (T_x inter T_y) without T_z$, then $(Pxz^delta (p^delta)) / pxz^delta = (Pyz^delta (p^delta)) / pyz^delta$ (see the algorithm and theorem again) and therefore $delta'_x / delta_x = delta'_y / delta_y$ and so $t^delta' = delta'_x / delta_x dot t^delta$ is just a scaling by a scalar. It is easy to see that this preserves rate-scaled pool prices.
-  - Otherwise, $p^delta$ is in exactly one of the $T_i$ sets. This means that all but one of x, y, or z is 0 and thus, trivially, $t^delta'$ is again a scaling by a scalar of $t^delta$ and the same argument as above applies. #qedhere
+  We perform case distinction to show that $t^delta' = lambda dot t^delta$ for some scalar $lambda > 0$. It is easy to see that this implies the statement of the lemma.
+
+  First, if $P^delta (p^delta) in interior(T_x) inter interior(T_y) inter interior(T_z)$, then this implies that $p^delta$ is already feasible, so by the above discussion, $delta' = delta$ and there is no change.
+
+  Second, if $P^delta (p^delta) in boundary(T_i) inter boundary(T_j) inter interior(T_j)$ for some permutation ${i,j,k}={x,y,z}$, then by (#sym.ast), two of the asset balances $x, y, z$ are zero and then $t^delta'$ and $t^delta$ are trivially related by a scalar.
+
+  Third, if $P^delta (p^delta) in boundary(T_i) inter interior(T_j) inter interior(T_k)$, we perform case distinction over $i$.
+
+  If $i = x$, then we have $Pyz^delta (p^delta) = pyz^delta$ #citep[@kmsr2023design[Algorithm~1 and Theorem~1]] and therefore $delta'_y = delta_y$, and also $x=0$ by (#sym.ast). This implies $t^delta' = t^delta$ and in particular, they are related by the scalar 1.
+  
+  If $i = y$, the analogous statement applies.
+
+  If $i = z$, then $(Pxz^delta (p^delta)) / pxz^delta = (Pyz^delta (p^delta)) / pyz^delta$ (see the algorithm and theorem again) and therefore $delta'_x / delta_x = delta'_y / delta_y$, and again by (#sym.ast) we have $z=0$. This again implies the scaling property.
+
+  This concludes our case distinction because $boundary(T_x) inter boundary(T_y) inter boundary(T_z) = emptyset$.
 ]
 
 = Proving the two core properties
@@ -284,13 +298,21 @@ We can now prove the two core properties.
   This proves arbitrage-freeness because the (rate-scaled) pool prices post-update $P^delta (t^delta')$ are equal to the equilibrium (rate-scaled) pool prices $P^delta (p^delta')$, i.e., the pool is in equilibrium post-update, i.e., there is no arbitrage opportunity. Efficiency follows because these prices are also equal to the (rate-scaled) market prices $p^delta'$.
 ]
 
+// Following section commented out for now. We do not use this constrained version, I don't have any results here. More of theoretical interest.
+/*
 = Variant when only one rate provider is updatable
+
+#todo[This section should be reframed or removed. We don't do this anymore. Should maybe be a remark. Yeah should.]
 
 In a variant of our setup, we may be in a situation where only one rate (say $delta_x$) is updatable and both $delta_y$ and $delta_z$ are either constant or given externally. This could arise, e.g., for a WETH/USDC/USDT pool or a WBTC/wstETH/WETH pool, etc. We note that 3CLP where one leg is stable will typically not be very efficient since, because of the 3CLP's symmetry, the price range on one of the legs will always be suboptimal. Let's assume, though, that we find ourselves in such a situation (e.g., we have concluded that despite a suboptimal stable liquidity profile, the trading demand makes such a 3CLP worth it).
 
-First, note that the calculations laid out here are fundamentally true: independent of which of the rates we can control, the unique arbitrage-free and efficient update is to establish $p^delta' = P^delta (p^delta)$. Therefore, we need to compromise on one of these dimensions if we cannot choose $delta'$ freely. 
+First, note that the calculations laid out here are fundamentally true: independent of which of the rates we can control, the unique arbitrage-free and efficient update is to establish $p^delta' = P^delta (p^delta)$. Therefore, we need to compromise on one of these dimensions if we cannot choose $delta'$ 
+freely. 
+// TODO how would one actually prove uniqueness here?
+// Then this probably makes a nice remark.
 
 #text(red)[*WIP OPEN.* I think you can't do much for some cases (basically everything but $(T_y union T_z) without T_x$). For some cases, the result will just be inefficient, but for some others, no arbitrage-free nontrivial update seems to exist b/c you have to move along the $pyz$ line or along the diagonal. I didn't check the effect through $P^delta (t^delta')$ yet so something _might_ be there. For (say) WETH/USDT/USDC, we may of course assume that $pyz$ is close to 1, so the arbitrage introduced is small. (it's arbitrage-free if $pyz=1$).]
+*/
 
 = Remarks
 
