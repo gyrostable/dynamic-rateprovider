@@ -16,7 +16,7 @@ import {BalancerLPSharePricing} from "gyro-concentrated-lps-balv2/BalancerLPShar
 import {FixedPoint} from "balancer-v3/pkg/solidity-utils/contracts/math/FixedPoint.sol";
 import {LogExpMath} from "balancer-v3/pkg/solidity-utils/contracts/math/LogExpMath.sol";
 
-contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
+abstract contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
     using FixedPoint for uint256;
     using LogExpMath for uint256;
 
