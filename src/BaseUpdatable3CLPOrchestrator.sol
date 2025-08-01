@@ -118,7 +118,8 @@ abstract contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRule
 
     // Updater function. alpha is the lower price bound of the 3CLP. The 3CLP is symmetric so the
     // upper price bound is always beta = 1/alpha.
-    // See the PDF for the motivation for the math used here.
+    // See `doc/3clp-orchestrator/3clp-with-rateproviders.pdf` for the motivation for the math
+    // used here.
     function _updateToEdge(uint256 alpha) internal {
         uint256[3] memory feedValues = _getFeedValues();
         uint256[3] memory childValues = _getChildValues();

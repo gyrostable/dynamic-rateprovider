@@ -207,6 +207,27 @@ The process for deploying an `Updatable3CLPOrchestrator` is analogous to the 2-a
 4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool through the `GovernanceRoleManager`.
 5. Someone has to transfer a small amount of all pool tokens to the `UpdatableRateProvider` (for joining and exiting).
 
+### Interaction with the pool
+
+The orchestrator only interacts with the pool in two ways:
+1. It fetches the parameter `alpha` from the pool to determine if the pool is out of range.
+2. It performs a temporary join and exit to reset the accounting for protocol fees.
+
+Note that the pool state (i.e., asset balances or current spot prices) does _not_ enter into the calculation. Instead, the calculation is based on the implied _equilibrium_ state of the pool.
+
+### Variant with yield-bearing assets
+
+When some of the pool assets are yield-bearing tokens (e.g. wstETH or sUSDS), one will want to use additional rate scaling in the pool _after_ the child rateproviders. The rate scaling for yield should happen instantaneously and _not_ in terms of discrete updates.
+
+This can be implemented easily:
+- If the yield-bearing asset is the numeraire (say, sUSDS with the implicit assumption that USDS = USD for the purpose of updating the orchestrator), then one can simply use the yield rateprovider (sUSDS/USDS) for the numeraire asset, since the child rateprovider for this asset is null anyways.
+- If the yield-bearing asset is not the numeraire (say, wstETH with ETH being non-numeraire), the child rateprovider (which would be of type ETH/USD) can be multiplied with the yield rate provider (wstETH/ETH) to receive the combined rate. This can be done as follows:
+  - Create a new rate provider adapter that computes and quotes the product of two given rate providers
+  - Deploy this as `ProductRateProvider(orchestrator.childRateProvider(ETH feed index), (wstETH/ETH rate provider))`.
+  - Use that `ProductRateProvider` in the pool as the rate provider for wstETH.
+
+This construction should not cause any problems (as long as yield rates and oracle prices are accurate) because of the limited interaction with the pool as outlined above. Note in particular that the 3CLP is symmetric, so the orchestrator does not need to check which child rateproviders are attached to which assets in the pool to interpret the pool parameters correctly, different from the 2-asset variant for the ECLP and 2CLP.
+
 ### Source Tour
 
 - `BaseUpdatable3CLPOrchestrator` is an abstract base contract that contains most of the logic and math and state. 
