@@ -13,6 +13,7 @@ Dependencies are managed using foundry's system, i.e., git submodules.
 
 Non-standard dependencies:
 - `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for Gyro pools under Balancer v2, and some related interfaces in the Gyroscope system required for the V2 variant.
+  - This also contains the library `BalancerLPSharePricing.sol` to price LP shares for Gyro pools. This is taken out of the `protocol/` Gyroscope repo with only trivial edits to adjust imports. 
 
 The code is formatted using `forge fmt`.
 
