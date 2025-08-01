@@ -20,14 +20,22 @@ contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
     using FixedPoint for uint256;
     using LogExpMath for uint256;
 
+    /// @notice Emitted at most once during contract lifetime, when the admin has set the connected
+    /// pool.
     event PoolSet(address pool);
 
+    /// @notice The side where the respective asset price was out of range on `updateToEdge()`. Only
+    /// for logging. `BELOW` means that the corresponding scaling rate updated downwards, `ABOVE`
+    /// means that it updated upwards, and `IN_RANGE` means that it didn't update. The numeraire
+    /// is always considered `IN_RANGE`. Note that the feasible price region of the 3CLP has a
+    /// non-square shape; this may make this unintuitive to interpret.
     enum OutOfRangeMarker {
         IN_RANGE,
         BELOW,
         ABOVE
     }
 
+    /// @notice Emitted whenever the stored rates are updated on `updateToEdge()`.
     event ValuesUpdated(
         uint256 value0,
         OutOfRangeMarker indexed why0,
@@ -40,10 +48,17 @@ contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
     /// @notice Address of the connected pool. Settable once by the owner.
     address public pool;
 
-    // TODO documentation
-
+    /// @notice Connected price feeds. These are RateProvider's (often a ChainlinkRateProvider or a
+    /// transformation of one). See the constructor docs for details.
     address[3] public feeds;
+
+    /// @notice The rate providers corresponding to the three feeds, in order.
+    // `childRateProviders[ixNumeraire]` is always the zero address (i.e., there is no rateprovider
+    // there), the others are non-zero.
     SettableRateProvider[3] public childRateProviders;
+
+    /// @notice The token used as the numeraire unit in which all other prices are measured. See the
+    // constructor docs for details.
     uint256 public ixNumeraire;
 
     /// @notice The role that can call the update function.
@@ -51,6 +66,20 @@ contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
 
     address internal constant ZERO_ADDRESS = address(0);
 
+    /// @param _feeds The RateProvider's to use for updates. You can pass the zero address for any
+    /// of these and then the rate is assumed to be 1. This is useful for the numeraire (see the
+    /// next item).
+    /// @param _ixNumeraire The token index (in _feeds) to be used as the numeraire. This token will
+    /// _not_ have an associated child rateprovider created. It does not matter for the operation
+    /// which token is chosen here; the results will always be the same. However, for numerical
+    /// accuracy and  to make the operation intuitive, it's advisable to use the "natural" numeraire
+    /// that the prices are  denoted in. If one of the feeds is zero, one would usually want to use
+    /// that one for the numeraire.
+    /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later
+    /// and manage permissions
+    /// @param _updater Address to be set for the `UPDATER_ROLE`, which can call `.updateToEdge()`.
+    /// Pass the zero address if you don't want to set an updater yet; the admin can manage roles
+    /// later.
     constructor(address[3] memory _feeds, uint256 _ixNumeraire, address _admin, address _updater)
         AccessControlDefaultAdminRules(1 days, _admin)
     {
@@ -87,10 +116,15 @@ contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
         return rp.getRate();
     }
 
+    // Updater function. alpha is the lower price bound of the 3CLP. The 3CLP is symmetric so the
+    // upper price bound is always beta = 1/alpha.
+    // See the PDF for the motivation for the math used here.
     function _updateToEdge(uint256 alpha) internal {
         uint256[3] memory feedValues = _getFeedValues();
         uint256[3] memory childValues = _getChildValues();
 
+        // Map notation to "X" and "Y" being the two non-numeraire indices (so "Z" can always be
+        // the numeraire)
         (uint256 ixX, uint256 ixY) = _calcNonNumeraireIndices(ixNumeraire);
 
         // NB the child value for ixNumeraire = delta_z is implicitly always equal to 1.
@@ -106,11 +140,12 @@ contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRules {
             // This is a correct condition for the pool actually being in range.
             // Note that the equilibrium computation algorithm returns (pXZ, pYZ) unchanged in its
             // "else" case, so we can actually test for equality to check that the algorithm didn't
-            // detect any out-of-range condtiion.
+            // detect any out-of-range condtiion, and we don't need to worry about rounding.
             revert("Pool not out of range");
         }
 
-        // We store some temporary values to emit the event below.
+        // The rest of this function is just updating the child rates. We store some temporary
+        // values to emit the event below.
         uint256[3] memory newChildValues;
         newChildValues[ixNumeraire] = FixedPoint.ONE;
         newChildValues[ixX] = childValues[ixX].mulDown(pXZdelta).divDown(PXZdelta);
