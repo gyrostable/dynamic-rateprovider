@@ -140,7 +140,7 @@ abstract contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRule
             // This is a correct condition for the pool actually being in range.
             // Note that the equilibrium computation algorithm returns (pXZ, pYZ) unchanged in its
             // "else" case, so we can actually test for equality to check that the algorithm didn't
-            // detect any out-of-range condtiion, and we don't need to worry about rounding.
+            // detect any out-of-range condition, and we don't need to worry about rounding.
             revert("Pool not out of range");
         }
 
