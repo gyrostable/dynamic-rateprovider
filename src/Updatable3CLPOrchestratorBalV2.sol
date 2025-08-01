@@ -57,12 +57,12 @@ contract Updatable3CLPOrchestratorBalV2 is BaseUpdatable3CLPOrchestrator {
         _setPool(_pool);
     }
 
-    /// @notice If the pool is out of range, update the child rateproviders such that the true current
-    /// price it is just on the edge of its price range after the update. Reverts if the pool is not
-    /// out of range. Callable by the updater role only. Uses the linked `feeds` rateproviders to get
-    /// the true current prices. Note that the feasible price region of the 3CLP is not a rectangle
-    // and because of this, two child rateproviders may update even if only one feed price has changed
-    // significantly.
+    /// @notice If the pool is out of range, update the child rateproviders such that the true
+    /// current / price it is just on the edge of its price range after the update. Reverts if
+    /// the pool is not / out of range. Callable by the updater role only. Uses the linked `feeds`
+    /// rateproviders to / get / the true current prices. Note that the feasible price region of the
+    /// 3CLP is not a rectangle  and because of this, two child rateproviders may update even if
+    /// only one feed price has  changed  significantly.
     function updateToEdge() external onlyRole(UPDATER_ROLE) {
         require(pool != ZERO_ADDRESS, "Pool not set");
 
