@@ -1,0 +1,16 @@
+kmsr2023design:
+  type: manuscript
+  title: Design of the Gyroscope Consolidated Price Feed and Circuit Breaker System
+  author:
+  - Klages-Mundt, Ariah
+  - Schuldenzucker, Steffen
+  date: 2023
+  url: https://docs.gyro.finance/gyd/technical-documents#consolidated-price-feed
+kmsr2022concentrated:
+  type: manuscript
+  title: Concentrated Liquidity Pools with 2 or 3 Assets via Constant Products with Virtual Reserves
+  date: 2022
+  author:
+  - Klages-Mundt, Ariah
+  - Schuldenzucker, Steffen
+  url: https://docs.gyro.finance/pools/technical-documents
