@@ -103,7 +103,6 @@ abstract contract BaseUpdatable3CLPOrchestrator is AccessControlDefaultAdminRule
     }
 
     function _setPool(address _pool) internal {
-        // address[] memory rateProviders = _getRateProviders(_pool, _poolType);
         require(pool == ZERO_ADDRESS, "Pool already set");
         pool = _pool;
         emit PoolSet(_pool);
