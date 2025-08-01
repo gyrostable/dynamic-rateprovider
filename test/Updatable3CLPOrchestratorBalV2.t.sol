@@ -108,6 +108,7 @@ contract Updatable3CLPOrchestratorBalV2Test is Test {
         // Orchestrator
         orchestrator = new Updatable3CLPOrchestratorBalV2(
             _feeds,
+            [uint256(0),0,0],
             2,
             address(this),
             updater,

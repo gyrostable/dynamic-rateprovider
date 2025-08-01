@@ -22,6 +22,11 @@ contract Updatable3CLPOrchestratorBalV2 is BaseUpdatable3CLPOrchestrator {
     /// @param _feeds The RateProvider's to use for updates. You can pass the zero address for any
     /// of these and then the rate is assumed to be 1. This is useful for the numeraire (see the
     /// next item).
+    // @param _initialValues The initial values to use for the child rateproviders.
+    // Index `_ixNumeraire` is ignored. If 0 is passed, the current value of the respective feed
+    // is used (1e18 if no feed is given). The most common choice is `[0, 0, 0]`. Non-zero values
+    // can be used to control the initial asset allocation of the pool. All combinations of values
+    // are valid.
     /// @param _ixNumeraire The token index (in _feeds) to be used as the numeraire. This token will
     /// _not_ have an associated child rateprovider created. It does not matter for the operation
     /// which token is chosen here; the results will always be the same. However, for numerical
@@ -39,12 +44,13 @@ contract Updatable3CLPOrchestratorBalV2 is BaseUpdatable3CLPOrchestrator {
     /// swap fees.
     constructor(
         address[3] memory _feeds,
+        uint256[3] memory _initialValues,
         uint256 _ixNumeraire,
         address _admin,
         address _updater,
         address _gyroConfigManager,
         address _governanceRoleManager
-    ) BaseUpdatable3CLPOrchestrator(_feeds, _ixNumeraire, _admin, _updater) {
+    ) BaseUpdatable3CLPOrchestrator(_feeds, _initialValues, _ixNumeraire, _admin, _updater) {
         gyroConfigManager = IGyroConfigManager(_gyroConfigManager);
         governanceRoleManager = IGovernanceRoleManager(_governanceRoleManager);
     }
