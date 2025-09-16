@@ -52,7 +52,7 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
         // (checks and o/w reverts). The factory sets it to 10% by default.
         // IVault vault = factory.getVault();
         // IProtocolFeeController protocolFeeController = vault.getProtocolFeeController();
-        // TODO WIP this is not authorized even though it seems it should, and then this test fails
+        // NB this fails b/c this is not authorized even though it seems it should, and then this test fails
         // https://docs.balancer.fi/developer-reference/authorizer/base.html
         // vm.prank(0x35fFB749B273bEb20F40f35EdeB805012C539864);
         // protocolFeeController.setProtocolYieldFeePercentage(address(pool), 0);
