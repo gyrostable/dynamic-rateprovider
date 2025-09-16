@@ -48,7 +48,15 @@ The update method is permissioned and can only be performed by the respective au
 
 Warning: you _should not_ use _two_ `UpdatableRateProvider`s in the same pool (one for each asset). This is because the update routines would not be synchronized and you might get insufficient or wrong updates. Such a setup is never required. If you have a price feed that quotes in some other unit than the second pool asset, consider an intermediary transforming RateProvider instead (e.g. `src/QuotientRateProvider.sol` in this repo). This does not apply to simple automatic rateproviders like wstETH/WETH if their rate value can be expected to be sufficiently close to the market price, relative to the pool range; otherwise, use a transforming RateProvider and market price oracles.
 
-#### Common for Balancer V2 and V3
+You can deploy the `QuotientRateProvider` as follows:
+
+```shell
+forge script --rpc-url (api-key rpc.base) script/DeployQuotientRateProvider.s.sol -s 'run(address,address)' 0xe8d2CB87233dCECbA982256Ea243300c9EC772ba 0xa495C16BDC7FF13fE719d14F0caB734eA79E50F6 --broadcast
+```
+
+where the two addresses are the numerator and denominator rate providers.
+
+### Common for Balancer V2 and V3
 
 The contract uses a two-step initialization procedure to avoid a circular deployment dependency of the `UpdatableRateProvider` vs the pool.
 
