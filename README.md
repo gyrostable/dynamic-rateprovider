@@ -3,6 +3,35 @@
 
 These are contracts that implement the `RateProvider` interface and are connected to a price feed but do _not_ automatically reflect the current value of the feed. Instead, everyday operation is like a `ConstantRateProvider` that always returns the same stored value. What differentiates these rateproviders from a `ConstantRateProvider` is that they also have an update method by which the stored value can be updated based on the feed. This update is conditional, though, to avoid an arbitrage loss / MEV exposure to LPers.
 
+There are two variants of this idea that are related in spirit but not directly in code: `UpdatableRateProviderBalV{2,3}` is for the 2-asset pools ECLP and 2CLP and implements the `RateProvider` interface directly (for Balancer V2 and V3, respectively). `Updatable3CLPOrchestratorBalV2` works for the 3-asset pool 3CLP and governs two separate rateproviders (at `.childRateProviders`). This is because the update procedure needs to update two rateproviders in a coordinated fashion.
+
+## Repository layout
+
+### Dependencies
+
+Dependencies are managed using foundry's system, i.e., git submodules.
+
+Non-standard dependencies:
+- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for Gyro pools under Balancer v2, and some related interfaces in the Gyroscope system required for the V2 variant.
+  - This also contains the library `BalancerLPSharePricing.sol` to price LP shares for Gyro pools. This is taken out of the `protocol/` Gyroscope repo with only trivial edits to adjust imports. 
+
+The code is formatted using `forge fmt`.
+
+### Testing
+
+Use `forge test`. This is a fork test and you need `BASE_RPC_URL` and `MAINNET_RPC_URL` in `.env`.
+
+Since we're testing a lot of variants, the tests have some inheritance structure:
+- `TesterBase` is the base contract from which all 2-asset pool tests inherit. This contains some tests already
+  that are then inherited. Every test has one simulated pool attached to itself.
+- `TesterBaseBalV2` and `TesterBaseBalV3` are the base contracts for 2-asset pools for all Balancer
+  v2 and Balancer v3 tests.
+- `test/UpdatableRateProvider*.t.sol` derive from these.
+- `test/Updatable3CLPOrchestratorBalV2.t.sol` tests the 3-asset variant.
+- There are some other, separate tests as well.
+
+## 2-asset variant (`UpdatableRateProviderBalV{2,3}`)
+
 The `feed` rateprovider is often a `ChainlinkRateProvider` that pulls prices from chainlink, but it could also be a contract that implements some transformation of oracle feeds (e.g., the quotient of two oracle feeds to get a relative price). In any case, it is assumed that the `feed` returns a live market price.
 
 In the V1 version of the contract (which is currently implemented here), the stored value can only be updated when the linked pool is out of range (via `updateToEdge()`), and then the rate is updated such that the pool is just at the respective edge of its price range. In this case, LPers do not incur an arbitrage loss. It is expected that these updates occur rarely.
@@ -15,27 +44,7 @@ A potential accounting problem occurs if protocol fees are taken on underlying y
 
 The update method is permissioned and can only be performed by the respective authorized role. This is a conservative measure to protect against potential unknown attacks that might be available by performing an update together with some other manipulation. While we are not aware of any such attack, making the update permissioned serves as a conservative approach here.
 
-## Dependencies
-
-Dependencies are managed using foundry's system, i.e., git submodules.
-
-Non-standard dependencies:
-- `lib/gyro-concentrated-lps-balv2/` - Ad-hoc interface for Gyro pools under Balancer v2, and some related interfaces in the Gyroscope system required for the V2 variant.
-
-The code is formatted using `forge fmt`.
-
-## Testing
-
-Use `forge test`. This is a fork test and you need `BASE_RPC_URL` and `MAINNET_RPC_URL` in `.env`.
-
-Since we're testing a lot of variants, the tests have some inheritance structure:
-- `TesterBase` is the base contract from which everyone inherits. This contains some tests already
-  that are then inherited. Every test has one simulated pool attached to itself.
-- `TesterBaseBalV2` and `TesterBaseBalV3` are the base contracts for all Balancer v2 and Balancer
-  v3 tests.
-- `test/*.t.sol` derive from these.
-
-## Deployment & Operation
+### Deployment & Operation
 
 Warning: you _should not_ use _two_ `UpdatableRateProvider`s in the same pool (one for each asset). This is because the update routines would not be synchronized and you might get insufficient or wrong updates. Such a setup is never required. If you have a price feed that quotes in some other unit than the second pool asset, consider an intermediary transforming RateProvider instead (e.g. `src/QuotientRateProvider.sol` in this repo). This does not apply to simple automatic rateproviders like wstETH/WETH if their rate value can be expected to be sufficiently close to the market price, relative to the pool range; otherwise, use a transforming RateProvider and market price oracles.
 
@@ -57,7 +66,7 @@ The contract uses a two-step initialization procedure to avoid a circular deploy
 
 An `UpdatableRateProvider` *must not* be used for more than one pool. We cannot and do not check this.
 
-### Balancer V2 Variant
+#### Balancer V2 Variant
 
 The Balancer V2 variant of the CLPs cannot differentiate, for the purpose of collecting protocol fees, between swap fees, underlying yield, and rate provider changes. An update of the rateprovider would be registered as yield, which is likely undesirable. To work around this, `UpdatableRateProviderBalV2` performs the following actions:
 
@@ -72,11 +81,11 @@ Because of this, the following additional steps are needed for deployment:
 4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool through the `GovernanceRoleManager`.
 5. Someone has to transfer a small amount of all pool tokens to the `UpdatableRateProvider` (for joining and exiting).
 
-### Balancer V3 Variant
+#### Balancer V3 Variant
 
 For the Balancer V3 variant, it must be ensured that the pool does not take protocol fees on yield (since this would imply protocol fees for upwards updates, but not for downwards updates, which is likely undesired). Specifically, yield fees need to be _disabled_ for the assets in the pool's config that is passed on pool deployment. The `UpdatableRateProviderBalV3` checks this in `setPool()`. Nothing else needs to be done.
 
-### Deployment in Practice
+#### Deployment in Practice
 
 **Do NOT re-use the same updatable rateprovider for different pools, even if the assets are the same. This is not going to work!**
 
@@ -88,7 +97,7 @@ $ python deploy_updatable_rate_provider.py --help
 
 This calls into a foundry script. You need `PRIVATE_KEY` (of the deployer) and `{CHAIN}_RPC_URL` in your `.env`.
 
-#### Verification
+##### Verification
 
 Forge's `--guess-constructor-args` and also etherscan's similar bytecode matching sometimes fails for some reason. Here's a template you can use to manually verify with constructor args (TODO this should be made part of the python script above: provide options `--verify` and `--only-verify`).
 
@@ -102,17 +111,17 @@ Command for sei (replace your rpc url and the contract address, and _maybe_ the 
 forge verify-contract 0x27cE6A70B572302CD5466591313a0029b38d7bb0 UpdatableRateProviderBalV2 --verifier blockscout --verifier-url https://seitrace.com/pacific-1/api --etherscan-api-key random --rpc-url (api-key rpc.sei) --guess-constructor-args  --watch
 ```
 
-#### Setting permissions and setPool() for Bal V2
+##### Setting permissions and setPool() for Bal V2
 
 See `governance-l2/justfile` for how to generate the required multisig operations to set permissions in the `GovernanceRoleManager`. This also has a command to generate both the `setPool()` call and the `addPermission()` call, since these are often done together.
 
-## Source Tour
+### Source Tour
 
 - `BaseUpdatableRateProvider` is an abstract base class that contains most of the logic and math and state that is independent of whether it's Balancer V2 or V3.
 - `UpdatableRateProviderBalV2` is the concrete derived contract for Balancer V2 pools.
 - `UpdatableRateProviderBalV3` is the concrete derived contract for Balancer V3 pools.
 
-## Analysis
+### Analysis
 
 We perform some basic analysis to derive the formulas used in `BaseUpdatableRateProvider._updateToEdge()`.
 
@@ -184,6 +193,56 @@ $$
 $$
 
 and, again, by updating $\delta_y$ to the left-hand-side value, we make it such that the current price is exactly on the edge.
+
+## 3-asset variant (`Updatable3CLPOrchestratorBalV2`)
+
+The 3-asset variant currently only supports Balancer V2 because the 3CLP is not yet implemented on Balancer V3. This could be easily added in a similar way to the 2-asset variant.
+
+The overall spirit is similar to the 2-asset variant. The following details are different:
+1. There are up to 3 price feeds stored in `.feeds`.
+2. We have to name an explicit numeraire asset. This can be arbitrary because the 3CLP is symmetric and is mostly a matter of what is most convenient or minimizes numerical operations.
+3. The `Updatable3CLPOrchestratorBalV2` itself does not implement the `RateProvider` interface. Instead, it deploys two "child rate providers" that quote a constant rate controlled by the orchestrator. These child rate providers should be connected as the rate providers for the 3CLP.
+4. These two rates are updated simultaneously on `updateToEdge()`. The approach is based on an equilibrium computation (which is nontrivial for the 3CLP). See [`doc/3clp-orchestrator/3clp-with-rateproviders.pdf`](doc/3clp-orchestrator/3clp-with-rateproviders.pdf) for details.
+
+### Deployment & Operation
+
+Warning: The child rateproviders connected to any given `Updatable3CLPOrchestrator` _must not_ be used for more than one 3CLP. We cannot and do not check this.
+
+The process for deploying an `Updatable3CLPOrchestrator` is analogous to the 2-asset variant, a minor diffrence being how the rateprovider should be connected to the pool. Specifically:
+
+1. The deployer specifies up to 3 feeds belonging to the three assets to be used in the 3CLP. Typically, 2 feeds are used with the third asset serving as the numeraire. The deployer also chooses a most natural numeraire token out of the three. The deployer also specifies an admin and (optionally) an initial updater. For the V2 variant, they also specify the contracts used to temporarily set the protocol fee during update. They deploy the `Updatable3CLPOrchestratorBalV2`.
+2. They then specify the three `.childRateProviders` of the orchestrator as the rateproviders for the 3CLP, and deploy the 3CLP this way. `.childRateProviders(0)` belongs to the asset represented by `.feeds(0)`, etc. Note that the numeraire child rate provider is the zero address and therefore the rate is assumed to be constant 1. The 3CLP configuration handles this transparently in the right way.
+3. The admin then calls `UpdatableRateProvider.setPool()` to connect the rateprovider to the pool. This can only be done once. The update function is then available.
+4. Governance has to approve the `UpdatableRateProvider` to set the protocol fee on its corresponding pool through the `GovernanceRoleManager`.
+5. Someone has to transfer a small amount of all pool tokens to the `UpdatableRateProvider` (for joining and exiting).
+
+### Interaction with the pool
+
+The orchestrator only interacts with the pool in two ways:
+1. It fetches the parameter `alpha` from the pool to determine if the pool is out of range.
+2. It performs a temporary join and exit to reset the accounting for protocol fees.
+
+Note that the pool state (i.e., asset balances or current spot prices) does _not_ enter into the calculation. Instead, the calculation is based on the implied _equilibrium_ state of the pool.
+
+### Variant with yield-bearing assets
+
+When some of the pool assets are yield-bearing tokens (e.g. wstETH or sUSDS), one will want to use additional rate scaling in the pool _after_ the child rateproviders. The rate scaling for yield should happen instantaneously and _not_ in terms of discrete updates.
+
+This can be implemented easily:
+- If the yield-bearing asset is the numeraire (say, sUSDS with the implicit assumption that USDS = USD for the purpose of updating the orchestrator), then one can simply use the yield rateprovider (sUSDS/USDS) for the numeraire asset, since the child rateprovider for this asset is null anyways.
+- If the yield-bearing asset is not the numeraire (say, wstETH with ETH being non-numeraire), the child rateprovider (which would be of type ETH/USD) can be multiplied with the yield rate provider (wstETH/ETH) to receive the combined rate. This can be done as follows:
+  - Create a new rate provider adapter that computes and quotes the product of two given rate providers
+  - Deploy this as `ProductRateProvider(orchestrator.childRateProvider(ETH feed index), (wstETH/ETH rate provider))`.
+  - Use that `ProductRateProvider` in the pool as the rate provider for wstETH.
+
+This construction should not cause any problems (as long as yield rates and oracle prices are accurate) because of the limited interaction with the pool as outlined above. Note in particular that the 3CLP is symmetric, so the orchestrator does not need to check which child rateproviders are attached to which assets in the pool to interpret the pool parameters correctly, different from the 2-asset variant for the ECLP and 2CLP.
+
+### Source Tour
+
+- `BaseUpdatable3CLPOrchestrator` is an abstract base contract that contains most of the logic and math and state. 
+- `Updatable3CLPOrchestratorBalV2` is the concrete derived contract for Balancer V2 pools and contains the logic for talking to these pools.
+
+There is no Balancer V3 variant yet, but it can easily be added later.
 
 ## Licensing
 

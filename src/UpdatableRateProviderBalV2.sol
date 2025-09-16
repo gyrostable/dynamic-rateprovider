@@ -88,7 +88,8 @@ contract UpdatableRateProviderBalV2 is BaseUpdatableRateProvider {
     /// @notice Set the pool that this rateprovider should be connected to. Required before
     /// `.updateToEdge()` is called. Callable at most once and by admin only.
     ///
-    /// @param _pool A Balancer V2 ECLP
+    /// @param _pool A Balancer V2 ECLP or 2CLP
+    /// @param _poolType The type of pool (ECLP or 2CLP)
     function setPool(address _pool, PoolType _poolType) external onlyRole(DEFAULT_ADMIN_ROLE) {
         address[] memory rateProviders = _getRateProviders(_pool, _poolType);
         _setPool(_pool, _poolType, _calcOurTokenIx(rateProviders));
