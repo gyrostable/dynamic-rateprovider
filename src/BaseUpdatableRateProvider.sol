@@ -62,7 +62,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
 
     address internal constant ZERO_ADDRESS = address(0);
 
-    constructor(address _feed, bool _invert, address _admin, address _updater)
+    constructor(address _feed, bool _invert, uint256 _initialValue, address _admin, address _updater)
         AccessControlDefaultAdminRules(1 days, _admin)
     {
         if (_updater != ZERO_ADDRESS) {
@@ -72,10 +72,14 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         feed = IRateProvider(_feed);
         invert = _invert;
 
-        // NB we can do this *once*, here, while the pool is stil uninitialized.
-        // During normal operation, we need to set the value much more carefully to avoid arbitrage
-        // loss, and we can't usually set it to the current value.
-        value = _getFeedValue();
+        if (_initialValue != 0) {
+            value = _initialValue;
+        } else {
+            // NB we can do this *once*, here, while the pool is stil uninitialized.
+            // During normal operation, we need to set the value much more carefully to avoid arbitrage
+            // loss, and we can't usually set it to the current value.
+            value = _getFeedValue();
+        }
     }
 
     function getRate() external view override returns (uint256) {

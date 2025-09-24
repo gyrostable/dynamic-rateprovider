@@ -61,6 +61,7 @@ abstract contract TesterBaseBalV2 is TesterBase {
         updatableRateProvider = new UpdatableRateProviderBalV2(
             address(feed),
             false,
+            0,
             address(this),
             updater,
             address(gyroConfigManager),

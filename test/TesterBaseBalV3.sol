@@ -38,7 +38,7 @@ abstract contract TesterBaseBalV3 is TesterBase {
         TesterBase.setUp();
 
         updatableRateProvider =
-            new UpdatableRateProviderBalV3(address(feed), false, address(this), updater);
+            new UpdatableRateProviderBalV3(address(feed), false, 0, address(this), updater);
 
         // Approve the tokens for pool initialization.
         for (uint256 i = 0; i < N_TOKENS; ++i) {

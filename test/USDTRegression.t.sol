@@ -29,6 +29,7 @@ contract USDTRegressionTest is Test {
         UpdatableRateProviderBalV2 replacement = new UpdatableRateProviderBalV2(
             address(urp0.feed()),
             false,
+            0,
             admin,
             updater,
             address(urp0.gyroConfigManager()),

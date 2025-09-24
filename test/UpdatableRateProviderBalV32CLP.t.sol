@@ -80,7 +80,7 @@ contract UpdatableRateProviderBalV3Test2CLP is TesterBaseBalV3 {
     function testRevertOnYieldFees() public {
         // We need to redeploy a new updatableRateProvider here.
         updatableRateProvider =
-            new UpdatableRateProviderBalV3(address(feed), false, address(this), updater);
+            new UpdatableRateProviderBalV3(address(feed), false, 0, address(this), updater);
 
         TokenConfig[] memory tokenConfigs = mkTokenConfigs(2);
         tokenConfigs[0].paysYieldFees = true;

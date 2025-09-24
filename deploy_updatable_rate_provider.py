@@ -4,6 +4,7 @@ import dotenv
 
 import subprocess
 import os
+from decimal import Decimal
 
 from constants import CONTRACT_ADDRESSES, DEFAULT_ADMINS
 
@@ -38,6 +39,11 @@ def main():
         "--invert",
         action="store_true",
         help="If passed, use 1/(feed value) instead of the feed value itself",
+    )
+    parser.add_argument(
+        "--initial-value",
+        type=Decimal,
+        help="If passed, use the given value (an unscaled decimal) as the initial value of the updatable rateprovider; otherwise, use the current feed value (default)",
     )
     parser.add_argument(
         "--broadcast",
@@ -75,6 +81,11 @@ def main():
 
     rpc_url = os.environ[f"{args.chain.upper()}_RPC_URL"]
 
+    if args.initial_value:
+        initial_value = int(args.initial_value * Decimal("1e18"))
+    else:
+        initial_value = 0
+
     if args.bal_version == "v2":
         cmd = [
             "forge",
@@ -85,9 +96,10 @@ def main():
             "--rpc-url",
             rpc_url,
             "-s",
-            "run(address,bool,address,address,address,address)",
+            "run(address,bool,uint256,address,address,address,address)",
             args.feed,
             ("true" if args.invert else "false"),
+            initial_value,
             admin,
             updater,
             contract_addresses["gyro_config_manager"],

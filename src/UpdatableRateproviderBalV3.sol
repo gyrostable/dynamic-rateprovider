@@ -28,6 +28,11 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
 
     /// @param _feed A RateProvider to use for updates
     /// @param _invert If true, use 1/(value returned by the feed) instead of the feed value itself
+    /// @param _initialValue If not 0, use this as the initial value returned by this rateprovider.
+    ///    If it is 0, use the current value of the feed.
+    ///    Note: any value can be chosen safely, but if non-0, you'll likely want to choose a value
+    ///    that does not make the pool out of range, and care should be taken to initialize the pool at the
+    ///    right (i.e., current) price then.
     /// @param _admin Address to be set for the `DEFAULT_ADMIN_ROLE`, which can set the pool later
     /// and
     ///     manage permissions
@@ -35,8 +40,8 @@ contract UpdatableRateProviderBalV3 is BaseUpdatableRateProvider {
     ///     Pass the zero address if you don't want to set an updater yet; the admin can manage
     /// roles
     ///     later.
-    constructor(address _feed, bool _invert, address _admin, address _updater)
-        BaseUpdatableRateProvider(_feed, _invert, _admin, _updater)
+    constructor(address _feed, bool _invert, uint256 _initialValue, address _admin, address _updater)
+        BaseUpdatableRateProvider(_feed, _invert, _initialValue, _admin, _updater)
     {}
 
     /// @notice Set the pool that this rateprovider should be connected to. Required before
