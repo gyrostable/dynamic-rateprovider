@@ -27,10 +27,14 @@ CONTRACT_ADDRESSES = {
     "polygon": {
         "governance_role_manager": "0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392",
         "gyro_config_manager": "0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31",
-    },    
+    },
     "sonic": {
         "governance_role_manager": "0xF47998c67D7EBbba8780B37c5d92cb282EB26905",
         "gyro_config_manager": "0xCe276785E78796dcbb4FE07Fd335c89A1F784CA4",
+    },
+    "gnosis": {
+        "governance_role_manager": "0x0B39C433F591f4faBa2a3E5B2d55ba05DBDEa392",
+        "gyro_config_manager": "0xCb5830e6dBaD1430D6902a846F1b37d4Cfe49b31",
     },
 }
 
