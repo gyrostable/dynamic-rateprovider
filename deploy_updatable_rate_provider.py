@@ -82,9 +82,9 @@ def main():
     rpc_url = os.environ[f"{args.chain.upper()}_RPC_URL"]
 
     if args.initial_value:
-        initial_value = int(args.initial_value * Decimal("1e18"))
+        initial_value = str(int(args.initial_value * Decimal("1e18")))
     else:
-        initial_value = 0
+        initial_value = str(0)
 
     if args.bal_version == "v2":
         cmd = [
