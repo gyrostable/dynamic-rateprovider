@@ -281,4 +281,4 @@ There is no Balancer V3 variant yet, but it can easily be added later.
 
 ## Licensing
 
-Superluminal Labs Ltd. is the owner of this software and any accompanying files contained herein (collectively, this “Software”). This Software is not covered by the General Public License ("GPL") and does not confer any rights to the user thereunder. None of the code incorporated into the Software was GPL-licensed, and Superluminal Labs Ltd. has received prior custom licenses for all such code, including a special hybrid license between Superluminal Labs Ltd and Balancer Labs OÜ [Special Licence](./licenses/GyroscopeBalancerLicense.pdf).
+FTL Labs is the owner of this software and any accompanying files contained herein (collectively, this “Software”). This Software is not covered by the General Public License ("GPL") and does not confer any rights to the user thereunder. None of the code incorporated into the Software was GPL-licensed, and FTL Labs has received prior custom licenses for all such code, including a special hybrid license between FTL Labs and Balancer Labs OÜ [Special Licence](./licenses/GyroscopeBalancerLicense.pdf).
