@@ -47,7 +47,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
     // together with `pool`.
     uint8 public ourTokenIx;
 
-    /// @notice Current value. Equal to `.getRate()`.
+    /// @notice Current value. Equal to `.getRate()` unless a derived contract overrides it.
     uint256 public value;
 
     /// @notice The role that can call the update function.
@@ -82,7 +82,7 @@ abstract contract BaseUpdatableRateProvider is AccessControlDefaultAdminRules, I
         }
     }
 
-    function getRate() external view override returns (uint256) {
+    function getRate() external view virtual override returns (uint256) {
         return value;
     }
 
