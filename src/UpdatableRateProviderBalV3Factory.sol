@@ -9,8 +9,12 @@ import {Ownable} from "oz/access/Ownable.sol";
 import {UpdatableRateProviderBalV3} from "./UpdatableRateproviderBalV3.sol";
 
 /// @notice Factory for deploying and managing Balancer V3 updatable rate providers.
-/// @dev Create always deploys a new instance (no uniqueness by feed/params): the same feed may
-/// be used across many pools, and each pool needs its own rate provider.
+/// @dev `create()` is permissionless and always deploys a new instance (no uniqueness by
+/// feed/params): the same feed may be used across many pools, and each pool needs its own rate
+/// provider. Because anyone can deploy with arbitrary parameters, `isRateProviderFromFactory()`
+/// proves bytecode provenance only—not that a rate provider is safely configured. Callers,
+/// registries, and UIs must still verify `feed`, `invert`, `DEFAULT_ADMIN_ROLE`, `UPDATER_ROLE`,
+/// `vault`, and `pool` before trusting a deployed instance.
 contract UpdatableRateProviderBalV3Factory is Ownable {
     /// @notice A new updatable rate provider was created.
     event RateProviderCreated(
@@ -60,13 +64,10 @@ contract UpdatableRateProviderBalV3Factory is Ownable {
     /// @param admin Address for `DEFAULT_ADMIN_ROLE` (can `setPool()` and manage roles)
     /// @param updater Address for `UPDATER_ROLE` (can `updateToEdge()`); pass zero to leave unset
     /// @return rateProvider The deployed rate provider
-    function create(
-        address feed,
-        bool invert,
-        uint256 initialValue,
-        address admin,
-        address updater
-    ) external returns (UpdatableRateProviderBalV3 rateProvider) {
+    function create(address feed, bool invert, uint256 initialValue, address admin, address updater)
+        external
+        returns (UpdatableRateProviderBalV3 rateProvider)
+    {
         _ensureEnabled();
 
         rateProvider = new UpdatableRateProviderBalV3(feed, invert, initialValue, admin, updater);
@@ -76,6 +77,10 @@ contract UpdatableRateProviderBalV3Factory is Ownable {
     }
 
     /// @notice Checks whether the given rate provider was created by this factory.
+    /// @dev Returning `true` proves bytecode provenance only (`UpdatableRateProviderBalV3`).
+    /// Because `create()` is permissionless, callers, registries, and UIs must independently
+    /// verify `feed`, `invert`, `DEFAULT_ADMIN_ROLE`, `UPDATER_ROLE`, `vault`, and `pool`
+    /// before trusting the rate provider.
     function isRateProviderFromFactory(address rateProvider) external view returns (bool) {
         return _isRateProviderFromFactory[rateProvider];
     }
